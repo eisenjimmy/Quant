@@ -50,6 +50,13 @@ function formatEps(value: number): string {
   return value < 0 ? `-$${abs}` : `$${abs}`;
 }
 
+function formatSurprise(value: number): string {
+  const pct = Math.abs(value).toFixed(1);
+  if (value > 0) return `+${pct}%`;
+  if (value < 0) return `-${pct}%`;
+  return '0.0%';
+}
+
 function SessionChip({ time }: { time: EarningsTime }) {
   if (time === 'unknown') return null;
   const bmo = time === 'bmo';
@@ -74,6 +81,7 @@ function EventRow({
   const { actions } = useApp();
   const hasSub =
     event.epsEstimate !== null ||
+    event.epsActual !== null ||
     (parents[event.symbol] ?? []).length > 0 ||
     event.source === 'sample';
   return (
@@ -96,7 +104,20 @@ function EventRow({
         <div className="ec-sub">
           {event.epsEstimate !== null && (
             <span className="ec-eps">
-              est EPS <span className="num">{formatEps(event.epsEstimate)}</span>
+              expected <span className="num">{formatEps(event.epsEstimate)}</span>
+            </span>
+          )}
+          {event.epsActual !== null && event.epsActual !== undefined && (
+            <span
+              className="ec-eps"
+              title="Latest reported EPS. Positive surprises can support valuation multiple expansion; misses can pressure the setup even if the chart looks constructive."
+            >
+              actual <span className="num">{formatEps(event.epsActual)}</span>
+            </span>
+          )}
+          {event.epsSurprisePercent !== null && event.epsSurprisePercent !== undefined && (
+            <span className={`ec-surprise ${event.epsSurprisePercent >= 0 ? 'up' : 'down'} num`}>
+              {formatSurprise(event.epsSurprisePercent)}
             </span>
           )}
           <ViaChips symbol={event.symbol} parents={parents} />

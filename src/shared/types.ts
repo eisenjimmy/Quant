@@ -67,6 +67,9 @@ export interface EarningsEvent {
   date: string;          // ISO date, YYYY-MM-DD
   time: EarningsTime;
   epsEstimate: number | null;
+  epsActual?: number | null;
+  epsSurprisePercent?: number | null;
+  latestReportedDate?: string | null;
   source: DataSource;
 }
 
@@ -106,6 +109,96 @@ export interface PivotNewsResult {
   items: NewsItem[]; // news published near the pivot date; may be empty
 }
 
+export type MacroOverlayKey =
+  | 'jobs'
+  | 'unemployment'
+  | 'inflation'
+  | 'treasury10y'
+  | 'oil'
+  | 'vix';
+
+export interface MacroOverlayPoint {
+  time: number; // unix seconds
+  value: number;
+}
+
+export interface MacroOverlaySeries {
+  key: MacroOverlayKey;
+  label: string;
+  unit: string;
+  sourceName: string;
+  points: MacroOverlayPoint[];
+  source: DataSource;
+}
+
+export interface QuantInsightRequest {
+  symbol: string;
+  range: ChartRange;
+  evaluation: import('./quant').SignalEvaluation;
+  news: NewsItem[];
+  earnings?: EarningsEvent | null;
+  valuation?: ValuationSnapshot | null;
+  macroOverlays?: MacroOverlaySeries[];
+  snapshotDataUrl?: string;
+  question?: string;
+  thinkingMode?: boolean;
+}
+
+export interface QuantInsightResponse {
+  ok: boolean;
+  source: 'local-llm' | 'deterministic-fallback';
+  model?: string;
+  answer: string;
+  generatedAt: string;
+  error?: string;
+}
+
+export interface QuantInsightRecord extends QuantInsightResponse {
+  id: string;
+  symbol: string;
+  range: ChartRange;
+  question?: string;
+  decision?: import('./quant').TradeDecision;
+  setupType?: import('./quant').SetupType;
+  confidence?: number;
+}
+
+export interface LlmSettings {
+  enabled: boolean;
+  baseUrl: string;
+  model: string;
+}
+
+export interface ValuationSnapshot {
+  symbol: string;
+  companyName: string;
+  price: number | null;
+  marketCap: number | null;
+  enterpriseValue: number | null;
+  totalRevenue: number | null;
+  grossProfit: number | null;
+  ebitda: number | null;
+  netIncomeToCommon: number | null;
+  profitMargin: number | null;
+  revenueGrowth: number | null;
+  trailingPe: number | null;
+  forwardPe: number | null;
+  priceToSales: number | null;
+  priceToBook: number | null;
+  enterpriseToRevenue: number | null;
+  enterpriseToEbitda: number | null;
+  forwardEps: number | null;
+  targetMeanPrice: number | null;
+  sharesOutstanding: number | null;
+  estimates: Array<{
+    label: string;
+    fairValue: number | null;
+    upsidePercent: number | null;
+    formula: string;
+  }>;
+  source: DataSource;
+}
+
 export type AddWatchlistResult =
   | { ok: true; item: WatchlistItem; watchlist: WatchlistItem[] }
   | { ok: false; error: string };
@@ -122,5 +215,12 @@ export interface QuantApi {
   getEarnings(symbols: string[]): Promise<EarningsEvent[]>;
   getChart(symbol: string, range: ChartRange): Promise<ChartData>;
   getPivotNews(symbol: string, pivots: PivotPoint[]): Promise<PivotNewsResult[]>;
+  getMacroOverlay(key: MacroOverlayKey, range: ChartRange): Promise<MacroOverlaySeries>;
+  captureChartSnapshot(symbol: string): Promise<{ dataUrl: string; capturedAt: string } | null>;
+  analyzeQuant(request: QuantInsightRequest): Promise<QuantInsightResponse>;
+  getQuantInsights(symbol: string, range?: ChartRange): Promise<QuantInsightRecord[]>;
+  getLlmSettings(): Promise<LlmSettings>;
+  saveLlmSettings(settings: LlmSettings): Promise<LlmSettings>;
+  getValuation(symbol: string): Promise<ValuationSnapshot>;
   openExternal(url: string): Promise<void>;
 }

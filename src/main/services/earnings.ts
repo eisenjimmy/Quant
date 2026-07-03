@@ -50,8 +50,9 @@ function detectTime(candidates: Array<string | null | undefined>): EarningsTime 
 }
 
 async function fetchLiveEvent(symbol: string): Promise<EarningsEvent | null> {
-  const summary = await quoteSummary(symbol, ['calendarEvents', 'price']);
+  const summary = await quoteSummary(symbol, ['calendarEvents', 'earningsHistory', 'price']);
   const earnings = summary.calendarEvents?.earnings;
+  const latestHistory = summary.earningsHistory?.history?.[0];
   const companyName =
     summary.price?.longName ||
     summary.price?.shortName ||
@@ -76,6 +77,15 @@ async function fetchLiveEvent(symbol: string): Promise<EarningsEvent | null> {
     date: toYmd(new Date(nextMs)),
     time: detectTime([earnings?.earningsCallTime, earnings?.callTime]),
     epsEstimate: rawNumber(earnings?.earningsAverage),
+    epsActual: rawNumber(latestHistory?.epsActual),
+    epsSurprisePercent: rawNumber(latestHistory?.surprisePercent),
+    latestReportedDate:
+      latestHistory?.quarter === undefined
+        ? null
+        : (() => {
+            const ms = toEpochMs(latestHistory.quarter);
+            return ms === null ? null : toYmd(new Date(ms));
+          })(),
     source: 'live',
   };
 }

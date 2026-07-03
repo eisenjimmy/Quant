@@ -1,0 +1,12 @@
+node_modules/
+npm-debug.log*
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Generated release packages
+release/
+.release-cache/

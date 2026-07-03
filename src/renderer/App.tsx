@@ -5,6 +5,7 @@ import { Watchlist } from './components/Watchlist';
 import { NewsFeed } from './components/NewsFeed';
 import { EarningsCalendar } from './components/EarningsCalendar';
 import { ChartModal } from './components/ChartModal';
+import { OnboardingWizard } from './components/OnboardingWizard';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -50,6 +51,7 @@ function Shell() {
       {state.modalSymbol && (
         <ChartModal key={state.modalSymbol} symbol={state.modalSymbol} />
       )}
+      <OnboardingWizard />
     </div>
   );
 }

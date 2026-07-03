@@ -4,6 +4,7 @@
 // sample items (sourceName 'Sample Data', ids prefixed 'sample-').
 
 import type { NewsItem } from '../../shared/types';
+import { searchKoreanFinanceNews } from './googleNews';
 import { fetchText } from './http';
 import { parseRssItems } from './rss';
 import { sampleNews } from './sample';
@@ -54,7 +55,13 @@ export async function getNews(symbols: string[], limitPerSymbol = 6): Promise<Ne
 
   const perSymbol = await Promise.all(
     requested.map((symbol) =>
-      limit(() => fetchSymbolFeed(symbol)).catch(() => null),
+      limit(async () => {
+        const [yahoo, korean] = await Promise.all([
+          fetchSymbolFeed(symbol).catch(() => [] as NewsItem[]),
+          searchKoreanFinanceNews(symbol, FEED_TTL_MS).catch(() => [] as NewsItem[]),
+        ]);
+        return [...yahoo.slice(0, limitPerSymbol), ...korean.slice(0, 2)];
+      }).catch(() => null),
     ),
   );
 
@@ -65,7 +72,7 @@ export async function getNews(symbols: string[], limitPerSymbol = 6): Promise<Ne
   const merged: NewsItem[] = [];
   for (const feed of perSymbol) {
     if (!feed) continue;
-    for (const item of feed.slice(0, limitPerSymbol)) {
+    for (const item of feed.slice(0, limitPerSymbol + 2)) {
       const key = normalizeTitle(item.title);
       if (!key || seenTitles.has(key)) continue;
       seenTitles.add(key);

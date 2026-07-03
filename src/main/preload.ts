@@ -9,12 +9,19 @@ import type {
   ChartRange,
   EarningsEvent,
   HoldingsResult,
+  LlmSettings,
+  MacroOverlayKey,
+  MacroOverlaySeries,
   NewsItem,
   PivotNewsResult,
   PivotPoint,
   QuantApi,
+  QuantInsightRecord,
+  QuantInsightRequest,
+  QuantInsightResponse,
   Quote,
   SymbolSuggestion,
+  ValuationSnapshot,
   WatchlistItem,
 } from '../shared/types';
 
@@ -38,6 +45,20 @@ const api: QuantApi = {
     ipcRenderer.invoke(IPC.chartGet, symbol, range),
   getPivotNews: (symbol: string, pivots: PivotPoint[]): Promise<PivotNewsResult[]> =>
     ipcRenderer.invoke(IPC.pivotNewsGet, symbol, pivots),
+  getMacroOverlay: (key: MacroOverlayKey, range: ChartRange): Promise<MacroOverlaySeries> =>
+    ipcRenderer.invoke(IPC.macroOverlayGet, key, range),
+  captureChartSnapshot: (symbol: string): Promise<{ dataUrl: string; capturedAt: string } | null> =>
+    ipcRenderer.invoke(IPC.chartSnapshotCapture, symbol),
+  analyzeQuant: (request: QuantInsightRequest): Promise<QuantInsightResponse> =>
+    ipcRenderer.invoke(IPC.quantAnalyze, request),
+  getQuantInsights: (symbol: string, range?: ChartRange): Promise<QuantInsightRecord[]> =>
+    ipcRenderer.invoke(IPC.quantInsightsGet, symbol, range),
+  getLlmSettings: (): Promise<LlmSettings> =>
+    ipcRenderer.invoke(IPC.llmSettingsGet),
+  saveLlmSettings: (settings: LlmSettings): Promise<LlmSettings> =>
+    ipcRenderer.invoke(IPC.llmSettingsSave, settings),
+  getValuation: (symbol: string): Promise<ValuationSnapshot> =>
+    ipcRenderer.invoke(IPC.valuationGet, symbol),
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke(IPC.openExternal, url),
 };

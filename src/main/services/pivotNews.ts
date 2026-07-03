@@ -5,7 +5,7 @@
 // and input pivot order is preserved.
 
 import type { NewsItem, PivotNewsResult, PivotPoint } from '../../shared/types';
-import { searchGoogleNews } from './googleNews';
+import { searchGoogleNews, searchKoreanFinanceNews } from './googleNews';
 import { fetchSymbolFeed } from './news';
 import { normalizeTitle, pLimit, toYmd } from './util';
 
@@ -29,9 +29,12 @@ async function newsForPivot(
   const afterYmd = toYmd(new Date(Math.min(startMs, endMs - DAY_MS)));
   const beforeYmd = toYmd(new Date(endMs));
 
-  const google = await searchGoogleNews(symbol, afterYmd, beforeYmd, GOOGLE_TTL_MS).catch(
-    () => [] as NewsItem[],
-  );
+  const [google, korean] = await Promise.all([
+    searchGoogleNews(symbol, afterYmd, beforeYmd, GOOGLE_TTL_MS).catch(() => [] as NewsItem[]),
+    searchKoreanFinanceNews(symbol, GOOGLE_TTL_MS, afterYmd, beforeYmd).catch(
+      () => [] as NewsItem[],
+    ),
+  ]);
 
   const inWindow = (item: NewsItem): boolean => {
     const ms = Date.parse(item.publishedAt);
@@ -40,7 +43,7 @@ async function newsForPivot(
 
   const merged: NewsItem[] = [];
   const seen = new Set<string>();
-  for (const item of [...google, ...yahooItems.filter(inWindow)]) {
+  for (const item of [...google, ...korean, ...yahooItems.filter(inWindow)]) {
     const key = normalizeTitle(item.title);
     if (!key || seen.has(key)) continue;
     seen.add(key);

@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import type { NewsItem } from '../../shared/types';
 import { api } from '../api';
 import { useApp, useFocusSymbols } from '../store';
+import { NewsPreview } from './NewsPreview';
 import {
   PanelHeader,
   PanelState,
@@ -90,16 +91,23 @@ function NewsRow({
           {relativeTime(item.publishedAt, now)}
         </span>
       </div>
-      <button
-        type="button"
-        className="nf-title"
-        title={item.summary ?? item.title}
-        onClick={() => {
-          api.openExternal(item.url).catch(() => undefined);
-        }}
+      <NewsPreview
+        url={item.url}
+        title={item.title}
+        summary={item.summary}
+        meta={`${item.sourceName} · ${relativeTime(item.publishedAt, now)}`}
       >
-        {item.title}
-      </button>
+        <button
+          type="button"
+          className="nf-title"
+          title={item.summary ?? item.title}
+          onClick={() => {
+            api.openExternal(item.url).catch(() => undefined);
+          }}
+        >
+          {item.title}
+        </button>
+      </NewsPreview>
       <div className="nf-foot">
         <span className="cp-tag num">{item.relatedSymbol}</span>
         <ViaChips symbol={item.relatedSymbol} parents={parents} />

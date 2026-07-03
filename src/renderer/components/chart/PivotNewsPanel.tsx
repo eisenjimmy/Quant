@@ -7,6 +7,7 @@
 import React from 'react';
 import type { PivotNewsGroup } from './usePivotNews';
 import { api } from '../../api';
+import { NewsPreview } from '../NewsPreview';
 import { formatCandleTime, formatNewsDate, formatPrice } from './format';
 
 const ARTICLES_PER_PIVOT = 4;
@@ -126,17 +127,24 @@ export function PivotNewsPanel({
                 <ul className="cm-articles">
                   {group.items.slice(0, ARTICLES_PER_PIVOT).map((item) => (
                     <li key={item.id}>
-                      <button
-                        type="button"
-                        className="cm-article"
-                        onClick={() => void api.openExternal(item.url)}
+                      <NewsPreview
+                        url={item.url}
                         title={item.title}
+                        summary={item.summary}
+                        meta={`${item.sourceName} · ${formatNewsDate(item.publishedAt)}`}
                       >
-                        <span className="cm-article-title">{item.title}</span>
-                        <span className="cm-article-meta">
-                          {item.sourceName} · {formatNewsDate(item.publishedAt)}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          className="cm-article"
+                          onClick={() => void api.openExternal(item.url)}
+                          title={item.title}
+                        >
+                          <span className="cm-article-title">{item.title}</span>
+                          <span className="cm-article-meta">
+                            {item.sourceName} · {formatNewsDate(item.publishedAt)}
+                          </span>
+                        </button>
+                      </NewsPreview>
                     </li>
                   ))}
                 </ul>

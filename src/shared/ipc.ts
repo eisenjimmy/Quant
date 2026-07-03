@@ -12,6 +12,13 @@ export const IPC = {
   earningsGet: 'earnings:get',
   chartGet: 'chart:get',
   pivotNewsGet: 'chart:pivot-news',
+  macroOverlayGet: 'chart:macro-overlay',
+  chartSnapshotCapture: 'chart:capture-snapshot',
+  quantAnalyze: 'quant:analyze',
+  quantInsightsGet: 'quant:insights-get',
+  llmSettingsGet: 'llm-settings:get',
+  llmSettingsSave: 'llm-settings:save',
+  valuationGet: 'valuation:get',
   openExternal: 'shell:open-external',
 } as const;
 

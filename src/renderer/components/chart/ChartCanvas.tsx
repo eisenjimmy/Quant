@@ -36,6 +36,8 @@ import type {
   UTCTimestamp,
 } from 'lightweight-charts';
 import type { ChartData, PivotPoint } from '../../../shared/types';
+import type { MacroOverlaySeries } from '../../../shared/types';
+import type { RiskRewardPlan } from '../../../shared/quant';
 import type { TrendLines } from './analysis';
 import {
   formatCandleTime,
@@ -55,6 +57,12 @@ const C = {
   downDim: '#f0435c66', // --down at ~40% alpha for volume bars
   accent: '#4d7ef7',
   warn: '#e8a33d',
+  jobs: '#e8a33d',
+  unemployment: '#9aa6bd',
+  inflation: '#ff6f91',
+  treasury10y: '#54c6eb',
+  oil: '#d6b36a',
+  vix: '#a875ff',
   crosshair: 'rgba(154, 166, 189, 0.45)',
   crosshairLabel: '#1b2438',
 } as const;
@@ -73,17 +81,47 @@ interface ChartCanvasProps {
   numbered: boolean[];
   /** pivot index currently hovered in the news panel (accent marker). */
   highlight: number | null;
+  macroOverlays: MacroOverlaySeries[];
+  riskPlan: RiskRewardPlan | null;
+  showRiskOverlay: boolean;
+  onNeedMoreHistory?: () => void;
 }
 
 export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
-  function ChartCanvas({ data, pivots, trendLines, numbered, highlight }, ref) {
+  function ChartCanvas(
+    {
+      data,
+      pivots,
+      trendLines,
+      numbered,
+      highlight,
+      macroOverlays,
+      riskPlan,
+      showRiskOverlay,
+      onNeedMoreHistory,
+    },
+    ref,
+  ) {
     const hostRef = useRef<HTMLDivElement | null>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
     const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
     const supportSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
     const resistSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const entrySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const stopSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const target1SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const target2SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const macroSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
     const indexByTimeRef = useRef<Map<number, number>>(new Map());
+    const needHistoryRef = useRef(onNeedMoreHistory);
+    const historyRequestAtRef = useRef(0);
+    const dataMetaRef = useRef<{
+      range: ChartData['range'];
+      first: number;
+      last: number;
+      count: number;
+    } | null>(null);
     const hoverTimeRef = useRef<number | null>(null);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
 
@@ -156,6 +194,20 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
         }) as const;
       const supportSeries = chart.addLineSeries(trendOptions(C.up));
       const resistSeries = chart.addLineSeries(trendOptions(C.down));
+      const levelOptions = (color: string) =>
+        ({
+          color,
+          lineWidth: 1,
+          lineStyle: LineStyle.Solid,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          crosshairMarkerVisible: false,
+          autoscaleInfoProvider: () => null,
+        }) as const;
+      const entrySeries = chart.addLineSeries(levelOptions(C.accent));
+      const stopSeries = chart.addLineSeries(levelOptions(C.down));
+      const target1Series = chart.addLineSeries(levelOptions(C.up));
+      const target2Series = chart.addLineSeries({ ...levelOptions(C.up), lineStyle: LineStyle.Dashed });
 
       const onCrosshairMove = (param: MouseEventParams<Time>) => {
         const t = typeof param.time === 'number' ? param.time : null;
@@ -164,6 +216,15 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
         setHoverTime(t);
       };
       chart.subscribeCrosshairMove(onCrosshairMove);
+      const onVisibleRange = () => {
+        const visible = chart.timeScale().getVisibleLogicalRange();
+        const now = Date.now();
+        if (visible && visible.from < 8 && now - historyRequestAtRef.current > 1200) {
+          historyRequestAtRef.current = now;
+          needHistoryRef.current?.();
+        }
+      };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRange);
 
       const observer = new ResizeObserver((entries) => {
         const rect = entries[entries.length - 1].contentRect;
@@ -181,19 +242,33 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       volumeSeriesRef.current = volumeSeries;
       supportSeriesRef.current = supportSeries;
       resistSeriesRef.current = resistSeries;
+      entrySeriesRef.current = entrySeries;
+      stopSeriesRef.current = stopSeries;
+      target1SeriesRef.current = target1Series;
+      target2SeriesRef.current = target2Series;
 
       return () => {
         observer.disconnect();
         chart.unsubscribeCrosshairMove(onCrosshairMove);
+        chart.timeScale().unsubscribeVisibleLogicalRangeChange(onVisibleRange);
         chart.remove();
         chartRef.current = null;
         candleSeriesRef.current = null;
         volumeSeriesRef.current = null;
         supportSeriesRef.current = null;
         resistSeriesRef.current = null;
+        entrySeriesRef.current = null;
+        stopSeriesRef.current = null;
+        target1SeriesRef.current = null;
+        target2SeriesRef.current = null;
+        macroSeriesRef.current.clear();
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+      needHistoryRef.current = onNeedMoreHistory;
+    }, [onNeedMoreHistory]);
 
     // ---- Candles + volume (order matters: before markers/trend effects) ----
     useEffect(() => {
@@ -203,6 +278,10 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       if (!chart || !candleSeries || !volumeSeries) return;
 
       indexByTimeRef.current = indexByTime;
+      const visibleBefore = chart.timeScale().getVisibleLogicalRange();
+      const previous = dataMetaRef.current;
+      const first = data.candles[0]?.time ?? 0;
+      const last = data.candles[data.candles.length - 1]?.time ?? 0;
 
       const candleData: CandlestickData<Time>[] = data.candles.map((c) => ({
         time: c.time as UTCTimestamp,
@@ -226,7 +305,28 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
           secondsVisible: false,
         },
       });
-      chart.timeScale().fitContent();
+      const prepended =
+        previous !== null &&
+        previous.range === data.range &&
+        first < previous.first &&
+        last === previous.last;
+      const appendedOrRefreshed =
+        previous !== null &&
+        previous.range === data.range &&
+        first === previous.first;
+
+      if (prepended && visibleBefore) {
+        const inserted = indexByTime.get(previous.first) ?? 0;
+        chart.timeScale().setVisibleLogicalRange({
+          from: visibleBefore.from + inserted,
+          to: visibleBefore.to + inserted,
+        });
+      } else if (appendedOrRefreshed && visibleBefore) {
+        chart.timeScale().setVisibleLogicalRange(visibleBefore);
+      } else {
+        chart.timeScale().fitContent();
+      }
+      dataMetaRef.current = { range: data.range, first, last, count: data.candles.length };
 
       hoverTimeRef.current = null;
       setHoverTime(null);
@@ -239,6 +339,76 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       supportSeriesRef.current?.setData(toLine(trendLines.support));
       resistSeriesRef.current?.setData(toLine(trendLines.resistance));
     }, [trendLines]);
+
+    useEffect(() => {
+      const start = data.candles[0]?.time;
+      const end = data.candles[data.candles.length - 1]?.time;
+      const setLevel = (series: ISeriesApi<'Line'> | null, value: number | null) => {
+        if (!series || !start || !end || value === null || !showRiskOverlay) {
+          series?.setData([]);
+          return;
+        }
+        series.setData([
+          { time: start as UTCTimestamp, value },
+          { time: end as UTCTimestamp, value },
+        ]);
+      };
+      setLevel(entrySeriesRef.current, riskPlan?.entry ?? null);
+      setLevel(stopSeriesRef.current, riskPlan?.stop ?? null);
+      setLevel(target1SeriesRef.current, riskPlan?.target1 ?? null);
+      setLevel(target2SeriesRef.current, riskPlan?.target2 ?? null);
+    }, [data, riskPlan, showRiskOverlay]);
+
+    useEffect(() => {
+      const chart = chartRef.current;
+      if (!chart) return;
+      const existing = macroSeriesRef.current;
+      const wanted = new Set(macroOverlays.map((s) => s.key));
+      for (const [key, series] of existing) {
+        if (!wanted.has(key as MacroOverlaySeries['key'])) {
+          chart.removeSeries(series);
+          existing.delete(key);
+        }
+      }
+
+      chart.applyOptions({
+        leftPriceScale: {
+          visible: macroOverlays.length > 0,
+          borderColor: C.grid,
+        },
+      });
+
+      for (const overlay of macroOverlays) {
+        let series = existing.get(overlay.key);
+        if (!series) {
+          series = chart.addLineSeries({
+            priceScaleId: 'left',
+            color:
+              overlay.key === 'jobs'
+                ? C.jobs
+                : overlay.key === 'unemployment'
+                  ? C.unemployment
+                  : overlay.key === 'inflation'
+                    ? C.inflation
+                    : overlay.key === 'treasury10y'
+                      ? C.treasury10y
+                      : overlay.key === 'oil'
+                        ? C.oil
+                        : C.vix,
+            lineWidth: 1,
+            lineStyle: LineStyle.Solid,
+            priceLineVisible: false,
+            lastValueVisible: true,
+            crosshairMarkerVisible: false,
+          });
+          series.priceScale().applyOptions({ scaleMargins: { top: 0.15, bottom: 0.25 } });
+          existing.set(overlay.key, series);
+        }
+        series.setData(
+          overlay.points.map((p) => ({ time: p.time as UTCTimestamp, value: p.value })),
+        );
+      }
+    }, [macroOverlays]);
 
     // ---- Pivot markers (numbered once news lands, accent on panel hover) ----
     useEffect(() => {

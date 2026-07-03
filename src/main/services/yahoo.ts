@@ -63,6 +63,38 @@ export interface YahooQuoteSummaryResult {
     longName?: string | null;
     shortName?: string | null;
     marketState?: string | null;
+    regularMarketPrice?: YahooRawValue;
+    marketCap?: YahooRawValue;
+  };
+  summaryDetail?: {
+    trailingPE?: YahooRawValue;
+    forwardPE?: YahooRawValue;
+    priceToSalesTrailing12Months?: YahooRawValue;
+    priceToBook?: YahooRawValue;
+  };
+  defaultKeyStatistics?: {
+    enterpriseValue?: YahooRawValue;
+    enterpriseToRevenue?: YahooRawValue;
+    enterpriseToEbitda?: YahooRawValue;
+    forwardEps?: YahooRawValue;
+    sharesOutstanding?: YahooRawValue;
+  };
+  financialData?: {
+    totalRevenue?: YahooRawValue;
+    grossProfits?: YahooRawValue;
+    ebitda?: YahooRawValue;
+    netIncomeToCommon?: YahooRawValue;
+    profitMargins?: YahooRawValue;
+    revenueGrowth?: YahooRawValue;
+    targetMeanPrice?: YahooRawValue;
+  };
+  earningsHistory?: {
+    history?: Array<{
+      quarter?: YahooRawValue;
+      epsActual?: YahooRawValue;
+      epsEstimate?: YahooRawValue;
+      surprisePercent?: YahooRawValue;
+    }>;
   };
   topHoldings?: {
     holdings?: Array<{

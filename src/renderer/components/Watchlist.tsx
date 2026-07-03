@@ -88,6 +88,54 @@ function SkeletonRows() {
   );
 }
 
+function Movers({
+  items,
+  quotes,
+  onOpen,
+}: {
+  items: WatchlistItem[];
+  quotes: Record<string, Quote>;
+  onOpen: (symbol: string) => void;
+}) {
+  const movers = items
+    .map((item) => ({ item, quote: quotes[item.symbol] }))
+    .filter((row) => row.quote?.changePercent !== null && row.quote?.changePercent !== undefined)
+    .sort((a, b) => (b.quote?.changePercent ?? 0) - (a.quote?.changePercent ?? 0));
+  if (movers.length < 2) return null;
+  const top = movers.slice(0, 3);
+  const bottom = [...movers].reverse().slice(0, 3);
+  const row = (entry: (typeof movers)[number], kind: 'up' | 'down') => (
+    <button
+      key={`${kind}-${entry.item.symbol}`}
+      type="button"
+      className={`wl-mover ${kind}`}
+      onClick={() => onOpen(entry.item.symbol)}
+      title={`Open ${entry.item.symbol} chart`}
+    >
+      <span className="num">{entry.item.symbol}</span>
+      <b className="num">
+        {(entry.quote?.changePercent ?? 0) >= 0 ? '+' : ''}
+        {(entry.quote?.changePercent ?? 0).toFixed(2)}%
+      </b>
+    </button>
+  );
+  return (
+    <section className="wl-movers" aria-label="Daily movers">
+      <h2 className="wl-section-h">Daily movers</h2>
+      <div className="wl-mover-grid">
+        <div>
+          <span className="wl-mover-label">Highest</span>
+          {top.map((entry) => row(entry, 'up'))}
+        </div>
+        <div>
+          <span className="wl-mover-label">Lowest</span>
+          {bottom.map((entry) => row(entry, 'down'))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function Watchlist() {
   const { state, actions } = useApp();
 
@@ -128,6 +176,11 @@ export function Watchlist() {
           </div>
         ) : (
           <>
+            <Movers
+              items={state.watchlist}
+              quotes={state.quotes}
+              onOpen={onOpen}
+            />
             <Section
               label="ETFs"
               items={etfs}

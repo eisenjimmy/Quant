@@ -56,3 +56,34 @@ export async function searchGoogleNews(
   }
   return out;
 }
+
+export async function searchKoreanFinanceNews(
+  symbol: string,
+  ttlMs: number,
+  afterYmd?: string,
+  beforeYmd?: string,
+): Promise<NewsItem[]> {
+  const dateClause = afterYmd && beforeYmd ? ` after:${afterYmd} before:${beforeYmd}` : '';
+  const query = `site:finance.naver.com ${symbol} 주식 OR 증권${dateClause}`;
+  const url =
+    `https://news.google.com/rss/search?q=${encodeURIComponent(query)}` +
+    `&hl=ko&gl=KR&ceid=KR:ko`;
+  const xml = await fetchText(url, { ttlMs });
+  const items = parseRssItems(xml);
+
+  const out: NewsItem[] = [];
+  for (const item of items) {
+    const publishedMs = parseDateMs(item.pubDate);
+    if (publishedMs === null) continue;
+    const publisher = item.sourceName;
+    out.push({
+      id: `kr-${hashId(`${item.link}|${item.title}`)}`,
+      title: cleanTitle(item.title, publisher),
+      url: item.link,
+      sourceName: publisher ? `KR · ${publisher}` : 'KR · Naver Finance',
+      publishedAt: new Date(publishedMs).toISOString(),
+      relatedSymbol: symbol,
+    });
+  }
+  return out;
+}

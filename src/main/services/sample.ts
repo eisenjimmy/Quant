@@ -251,7 +251,10 @@ export function sampleEarnings(symbol: string): EarningsEvent {
     companyName: lookupName(sym) ?? sym,
     date: toYmd(date),
     time: hash % 2 === 0 ? 'bmo' : 'amc',
-    epsEstimate: null,
+    epsEstimate: Math.round((((hash % 450) / 100) + 0.4) * 100) / 100,
+    epsActual: Math.round((((hash % 470) / 100) + 0.35) * 100) / 100,
+    epsSurprisePercent: Math.round((((hash % 21) - 8) / 100) * 1000) / 10,
+    latestReportedDate: toYmd(new Date(Date.now() - 90 * 86_400_000)),
     source: 'sample',
   };
 }

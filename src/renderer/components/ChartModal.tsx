@@ -12,15 +12,30 @@ import React, {
   useState,
 } from 'react';
 import { CHART_RANGES } from '../../shared/types';
-import type { ChartRange } from '../../shared/types';
+import type {
+  ChartRange,
+  EarningsEvent,
+  MacroOverlayKey,
+  ValuationSnapshot,
+} from '../../shared/types';
+import { evaluateSignal } from '../../shared/quant';
+import { api } from '../api';
 import { useApp } from '../store';
 import { ChartCanvas } from './chart/ChartCanvas';
 import type { ChartCanvasHandle } from './chart/ChartCanvas';
 import { PivotNewsPanel } from './chart/PivotNewsPanel';
+import { QuantAgentPanel } from './chart/QuantAgentPanel';
+import { QuantDecisionPanel } from './chart/QuantDecisionPanel';
 import { computeTrendLines, findPivots } from './chart/analysis';
 import type { TrendLines } from './chart/analysis';
 import { useChartData } from './chart/useChartData';
+import {
+  DEFAULT_OVERLAYS,
+  OverlaySelection,
+  useMacroOverlays,
+} from './chart/useMacroOverlays';
 import { usePivotNews } from './chart/usePivotNews';
+import { useSoundCues } from './chart/useSoundCues';
 import {
   formatPrice,
   formatSigned,
@@ -30,6 +45,61 @@ import {
 
 const DEFAULT_RANGE: ChartRange = '1y';
 const EMPTY_LINES: TrendLines = { support: [], resistance: [] };
+const SETTINGS_KEY = 'quant.chart.settings.v1';
+
+type RailTab = 'signal' | 'ai' | 'news';
+
+interface ChartModalSettings {
+  showRiskOverlay: boolean;
+  overlays: OverlaySelection;
+  soundEnabled: boolean;
+  activeRailTab: RailTab;
+}
+
+const DEFAULT_SETTINGS: ChartModalSettings = {
+  showRiskOverlay: true,
+  overlays: DEFAULT_OVERLAYS,
+  soundEnabled: true,
+  activeRailTab: 'signal',
+};
+
+function loadSettings(): ChartModalSettings {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<ChartModalSettings>;
+    return {
+      showRiskOverlay:
+        typeof parsed.showRiskOverlay === 'boolean'
+          ? parsed.showRiskOverlay
+          : DEFAULT_SETTINGS.showRiskOverlay,
+      overlays: {
+        jobs: parsed.overlays?.jobs === true,
+        unemployment: parsed.overlays?.unemployment === true,
+        inflation: parsed.overlays?.inflation === true,
+        treasury10y: parsed.overlays?.treasury10y === true,
+        oil: parsed.overlays?.oil === true,
+        vix: parsed.overlays?.vix === true,
+      },
+      soundEnabled:
+        typeof parsed.soundEnabled === 'boolean'
+          ? parsed.soundEnabled
+          : DEFAULT_SETTINGS.soundEnabled,
+      activeRailTab:
+        parsed.activeRailTab === 'news' || parsed.activeRailTab === 'ai'
+          ? parsed.activeRailTab
+          : 'signal',
+    };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+function saveSettings(settings: ChartModalSettings): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    /* localStorage can be unavailable in unusual profiles */
+  }
+}
 
 function CloseIcon() {
   return (
@@ -67,15 +137,87 @@ function AlertIcon() {
   );
 }
 
+function overlayLabel(key: MacroOverlayKey): string {
+  switch (key) {
+    case 'jobs':
+      return 'Jobs';
+    case 'unemployment':
+      return 'Unemp';
+    case 'inflation':
+      return 'CPI';
+    case 'treasury10y':
+      return '10Y';
+    case 'oil':
+      return 'Oil';
+    case 'vix':
+      return 'VIX';
+  }
+}
+
+function OverlayTooltip({ overlayKey }: { overlayKey: MacroOverlayKey }) {
+  if (overlayKey === 'vix') {
+    return (
+      <span className="cm-tool-tip vix" role="tooltip">
+        <span className="cm-vix-art" aria-hidden="true" />
+        <strong>VIX interpretation</strong>
+        <span className="cm-vix-grid">
+          <b>10-15</b><span>Calm market</span>
+          <b>15-20</b><span>Normal / mildly active</span>
+          <b>20-30</b><span>Elevated fear or uncertainty</span>
+          <b>30+</b><span>Stress, panic, crash-risk pricing</span>
+          <b>40+</b><span>Extreme market fear</span>
+        </span>
+        <span className="cm-vix-rules">
+          <b>Low VIX</b>
+          <span>Smaller expected moves; breakouts may be weaker; mean reversion can work better.</span>
+          <b>High VIX</b>
+          <span>Wider stops needed; reduce position size; false breakouts become more common; risk control matters more than entry precision.</span>
+        </span>
+        <em>Expected 30-day S&P 500 move ≈ VIX / √12</em>
+        <span>Example: VIX 24 / √12 ≈ 6.9%</span>
+      </span>
+    );
+  }
+  const text =
+    overlayKey === 'jobs'
+      ? 'Job growth helps frame economic momentum and sector rotation risk.'
+      : overlayKey === 'unemployment'
+        ? 'Unemployment helps identify labor-cycle stress or late-cycle cooling.'
+        : overlayKey === 'inflation'
+          ? 'CPI inflation affects rates, margins, discount rates, and equity multiples.'
+          : overlayKey === 'treasury10y'
+            ? 'The 10Y yield is a discount-rate anchor for ETF valuation and duration risk.'
+            : 'Oil prices affect inflation, energy ETFs, transport costs, and consumer margins.';
+  return (
+    <span className="cm-tool-tip" role="tooltip">
+      {text}
+    </span>
+  );
+}
+
 export function ChartModal({ symbol }: { symbol: string }) {
   const { state, actions } = useApp();
+  const initialSettings = useMemo(loadSettings, []);
   const [range, setRange] = useState<ChartRange>(DEFAULT_RANGE);
   const [highlight, setHighlight] = useState<number | null>(null);
+  const [showRiskOverlay, setShowRiskOverlay] = useState(initialSettings.showRiskOverlay);
+  const [overlays, setOverlays] = useState<OverlaySelection>(initialSettings.overlays);
+  const [activeRailTab, setActiveRailTab] = useState<RailTab>(initialSettings.activeRailTab);
+  const [valuation, setValuation] = useState<ValuationSnapshot | null>(null);
+  const [earnings, setEarnings] = useState<EarningsEvent | null>(null);
   const canvasRef = useRef<ChartCanvasHandle | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const lastBarRef = useRef<number | null>(null);
 
-  const { data, loading, error, generation, retry } = useChartData(symbol, range);
+  const { data, loading, error, generation, retry, loadOlder, loadingOlder } = useChartData(
+    symbol,
+    range,
+  );
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled, play } = useSoundCues(
+    initialSettings.soundEnabled,
+  );
+  const { series: macroSeries, loading: macroLoading } = useMacroOverlays(range, overlays);
 
   const pivots = useMemo(
     () => (data && data.candles.length > 0 ? findPivots(data.candles) : []),
@@ -89,6 +231,17 @@ export function ChartModal({ symbol }: { symbol: string }) {
     [data, pivots],
   );
   const { groups, pending } = usePivotNews(symbol, range, pivots, generation);
+  const pivotNewsForAi = useMemo(
+    () =>
+      groups
+        .filter((group) => group.status === 'done')
+        .map((group) => ({ pivot: group.pivot, items: group.items })),
+    [groups],
+  );
+  const evaluation = useMemo(
+    () => (data && data.candles.length > 0 ? evaluateSignal(symbol, data.candles, pivots) : null),
+    [data, pivots, symbol],
+  );
 
   // A pivot's marker gains its number once its news arrived non-empty.
   const numbered = useMemo(
@@ -98,16 +251,44 @@ export function ChartModal({ symbol }: { symbol: string }) {
 
   // New generation (range switch / retry) → any panel-hover highlight is stale.
   useEffect(() => setHighlight(null), [generation]);
-
-  // ✕ takes focus on mount; Escape closes from anywhere.
-  useEffect(() => closeRef.current?.focus(), []);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') actions.closeChart();
+    saveSettings({ showRiskOverlay, overlays, soundEnabled, activeRailTab });
+  }, [activeRailTab, overlays, showRiskOverlay, soundEnabled]);
+  useEffect(() => play('open'), [play]);
+  useEffect(() => {
+    const lastBar = data?.candles[data.candles.length - 1]?.time ?? null;
+    if (lastBarRef.current !== null && lastBar !== null && lastBar !== lastBarRef.current) {
+      play('bar');
+    }
+    lastBarRef.current = lastBar;
+  }, [data, play]);
+  useEffect(() => {
+    if (evaluation?.decision === 'buy-candidate') play('up');
+    if (evaluation?.decision === 'short-candidate' || evaluation?.decision === 'invalidated') play('down');
+  }, [evaluation?.decision, play]);
+  useEffect(() => {
+    let cancelled = false;
+    setValuation(null);
+    setEarnings(null);
+    api.getValuation(symbol).then(
+      (result) => {
+        if (!cancelled) setValuation(result);
+      },
+      () => undefined,
+    );
+    api.getEarnings([symbol]).then(
+      (items) => {
+        if (!cancelled) setEarnings(items[0] ?? null);
+      },
+      () => undefined,
+    );
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [actions]);
+  }, [symbol]);
+
+  // ✕ takes focus on mount. The modal only closes through the explicit X.
+  useEffect(() => closeRef.current?.focus(), []);
 
   // Minimal focus trap: Tab wraps within the dialog.
   const trapTab = useCallback((e: React.KeyboardEvent) => {
@@ -136,6 +317,7 @@ export function ChartModal({ symbol }: { symbol: string }) {
 
   // ---- Header quote: live quote first, chart meta as fallback ----
   const watchItem = state.watchlist.find((w) => w.symbol === symbol);
+  const isWatched = Boolean(watchItem);
   const quote = state.quotes[symbol];
   const price = quote?.price ?? data?.regularMarketPrice ?? null;
   let change = quote?.change ?? null;
@@ -152,12 +334,7 @@ export function ChartModal({ symbol }: { symbol: string }) {
   const empty = !loading && !error && data !== null && data.candles.length === 0;
 
   return (
-    <div
-      className="cm-backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) actions.closeChart();
-      }}
-    >
+    <div className="cm-backdrop">
       <div
         ref={panelRef}
         className="cm-panel"
@@ -199,6 +376,16 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 LIVE
               </span>
             ))}
+          <button
+            type="button"
+            className={isWatched ? 'cm-watch-action remove' : 'cm-watch-action add'}
+            onClick={() => {
+              if (isWatched) void actions.removeSymbol(symbol);
+              else void actions.addSymbol(symbol);
+            }}
+          >
+            {isWatched ? 'Remove symbol' : 'Add symbol'}
+          </button>
           <div className="cm-ranges" role="group" aria-label="Chart range">
             {CHART_RANGES.map((r) => (
               <button
@@ -210,6 +397,37 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 {r.toUpperCase()}
               </button>
             ))}
+          </div>
+          <div className="cm-tools" role="group" aria-label="Chart overlays">
+            <button
+              type="button"
+              aria-pressed={showRiskOverlay}
+              onClick={() => setShowRiskOverlay((v) => !v)}
+            >
+              Risk
+            </button>
+            {(['jobs', 'unemployment', 'inflation', 'treasury10y', 'oil', 'vix'] as const).map((key) => (
+              <span key={key} className="cm-tool-wrap">
+                <button
+                  type="button"
+                  aria-pressed={overlays[key]}
+                  onClick={() =>
+                    setOverlays((current) => ({ ...current, [key]: !current[key] }))
+                  }
+                >
+                  {overlayLabel(key)}
+                </button>
+                <OverlayTooltip overlayKey={key} />
+              </span>
+            ))}
+            <button
+              type="button"
+              aria-pressed={soundEnabled}
+              onClick={() => setSoundEnabled((v) => !v)}
+              title="Toggle sound cues"
+            >
+              Sound
+            </button>
           </div>
           <button
             ref={closeRef}
@@ -232,6 +450,10 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 trendLines={trendLines}
                 numbered={numbered}
                 highlight={highlight}
+                macroOverlays={macroSeries}
+                riskPlan={evaluation?.risk ?? null}
+                showRiskOverlay={showRiskOverlay}
+                onNeedMoreHistory={loadOlder}
               />
             )}
             {loading && (
@@ -265,17 +487,101 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 </div>
               </div>
             )}
+            {(loadingOlder || macroLoading) && !loading && (
+              <div className="cm-corner-status">
+                {loadingOlder ? 'Loading older history' : 'Loading overlay'}
+              </div>
+            )}
           </div>
-          <PivotNewsPanel
-            groups={groups}
-            pending={pending}
-            chartLoading={loading}
-            chartFailed={error !== null || empty}
-            pivotCount={pivots.length}
-            intraday={isIntradayRange(range)}
-            onHoverPivot={handleHoverPivot}
-            onSelectPivot={handleSelectPivot}
-          />
+          <div className="cm-right-rail">
+            <div className="cm-rail-tabs" role="tablist" aria-label="Chart side panel">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeRailTab === 'signal'}
+                aria-controls="cm-tab-signal"
+                id="cm-tab-signal-button"
+                onClick={() => setActiveRailTab('signal')}
+              >
+                Signal Desk
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeRailTab === 'ai'}
+                aria-controls="cm-tab-ai"
+                id="cm-tab-ai-button"
+                onClick={() => setActiveRailTab('ai')}
+              >
+                Quant AI
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeRailTab === 'news'}
+                aria-controls="cm-tab-news"
+                id="cm-tab-news-button"
+                onClick={() => setActiveRailTab('news')}
+              >
+                News
+                {!loading && !error && pivots.length > 0 && (
+                  <span className="num">{pivots.length}</span>
+                )}
+              </button>
+            </div>
+            <div className="cm-rail-content">
+              {activeRailTab === 'signal' ? (
+                <div
+                  id="cm-tab-signal"
+                  role="tabpanel"
+                  aria-labelledby="cm-tab-signal-button"
+                  className="cm-rail-panel"
+                >
+                  <QuantDecisionPanel
+                    evaluation={evaluation}
+                    earnings={earnings}
+                    valuation={valuation}
+                  />
+                </div>
+              ) : activeRailTab === 'ai' ? (
+                <div
+                  id="cm-tab-ai"
+                  role="tabpanel"
+                  aria-labelledby="cm-tab-ai-button"
+                  className="cm-rail-panel"
+                >
+                  <QuantAgentPanel
+                    symbol={symbol}
+                    range={range}
+                    evaluation={evaluation}
+                    pivotNews={pivotNewsForAi}
+                    earnings={earnings}
+                    valuation={valuation}
+                    macroOverlays={macroSeries}
+                    onPlay={play}
+                  />
+                </div>
+              ) : (
+                <div
+                  id="cm-tab-news"
+                  role="tabpanel"
+                  aria-labelledby="cm-tab-news-button"
+                  className="cm-rail-panel"
+                >
+                  <PivotNewsPanel
+                    groups={groups}
+                    pending={pending}
+                    chartLoading={loading}
+                    chartFailed={error !== null || empty}
+                    pivotCount={pivots.length}
+                    intraday={isIntradayRange(range)}
+                    onHoverPivot={handleHoverPivot}
+                    onSelectPivot={handleSelectPivot}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

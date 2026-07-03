@@ -99,3 +99,20 @@
 .ec-eps .num {
   color: var(--text-2);
 }
+
+.ec-surprise {
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.ec-surprise.up {
+  color: var(--up);
+  background: var(--up-soft);
+}
+
+.ec-surprise.down {
+  color: var(--down);
+  background: var(--down-soft);
+}

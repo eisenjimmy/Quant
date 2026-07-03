@@ -94,7 +94,7 @@ const MODE_LABEL: Record<DataMode, string> = {
 
 const MODE_TITLE: Record<DataMode, string> = {
   live: 'Streaming live quotes',
-  sample: 'Offline fallback data — quotes are bundled samples',
+  sample: 'Offline fallback data - quotes are bundled samples',
   none: 'No quote data yet',
 };
 
@@ -154,7 +154,7 @@ export function TopBar() {
           </span>
           <div
             className={`tb-market${open ? ' open' : ''}`}
-            title="Approximate regular session: Mon–Fri 9:30–16:00 ET (holidays not observed)"
+            title="Approximate regular session: Mon-Fri 9:30-16:00 ET (holidays not observed)"
           >
             <span className="tb-market-dot" aria-hidden="true" />
             <span>{open ? 'Market open' : 'Market closed'}</span>

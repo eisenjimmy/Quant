@@ -12,15 +12,23 @@ import type {
   AddWatchlistResult,
   ChartRange,
   HoldingsResult,
+  LlmSettings,
+  MacroOverlayKey,
   PivotPoint,
+  QuantInsightRequest,
 } from '../shared/types';
 import { CHART_RANGES } from '../shared/types';
 import { getChart } from './services/chart';
 import { getEarnings } from './services/earnings';
 import { getHoldings } from './services/holdings';
+import { getLlmSettings, saveLlmSettings } from './services/llmSettings';
+import { getMacroOverlay } from './services/macro';
+import { getQuantInsights, saveQuantInsight } from './services/insightStore';
 import { getNews } from './services/news';
 import { getPivotNews } from './services/pivotNews';
+import { analyzeQuant } from './services/quantAi';
 import { getQuotes } from './services/quotes';
+import { getValuation } from './services/valuation';
 import { sampleChart, sampleEarnings, sampleNews, sampleQuote } from './services/sample';
 import { searchSymbols } from './services/symbols';
 import { clampInt, cleanSymbolList, normalizeSymbol, todayYmd } from './services/util';
@@ -40,6 +48,8 @@ const MAX_PIVOTS = 12;
 // ---------------------------------------------------------------------------
 
 const isSmoke = process.argv.includes('--smoke');
+const forceOnboarding =
+  process.argv.includes('--onboarding') || process.argv.includes('--smoke-onboarding');
 const smokeModalArg = process.argv.find((arg) => arg.startsWith('--smoke-modal='));
 const smokeModalSymbol = smokeModalArg
   ? normalizeSymbol(smokeModalArg.slice('--smoke-modal='.length))
@@ -66,6 +76,42 @@ function cleanPivots(raw: unknown): PivotPoint[] {
 
 function cleanRange(raw: unknown): ChartRange {
   return CHART_RANGES.includes(raw as ChartRange) ? (raw as ChartRange) : '6m';
+}
+
+function cleanMacroOverlayKey(raw: unknown): MacroOverlayKey {
+  return raw === 'jobs' ||
+    raw === 'unemployment' ||
+    raw === 'inflation' ||
+    raw === 'treasury10y' ||
+    raw === 'oil' ||
+    raw === 'vix'
+    ? raw
+    : 'jobs';
+}
+
+function cleanQuantInsightRequest(raw: unknown): QuantInsightRequest | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<QuantInsightRequest>;
+  const symbol = normalizeSymbol(r.symbol);
+  if (!symbol) return null;
+  if (!r.evaluation || typeof r.evaluation !== 'object') return null;
+  return {
+    symbol,
+    range: cleanRange(r.range),
+    evaluation: r.evaluation as QuantInsightRequest['evaluation'],
+    news: Array.isArray(r.news) ? r.news.slice(0, 12) : [],
+    earnings: r.earnings && typeof r.earnings === 'object' ? r.earnings : null,
+    valuation: r.valuation && typeof r.valuation === 'object' ? r.valuation : null,
+    macroOverlays: Array.isArray(r.macroOverlays)
+      ? r.macroOverlays.slice(0, 8).map((series) => ({
+          ...series,
+          points: Array.isArray(series.points) ? series.points.slice(-60) : [],
+        }))
+      : [],
+    snapshotDataUrl: typeof r.snapshotDataUrl === 'string' ? r.snapshotDataUrl.slice(0, 1_000_000) : undefined,
+    question: typeof r.question === 'string' ? r.question.slice(0, 1200) : undefined,
+    thinkingMode: r.thinkingMode === true,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +213,70 @@ function registerIpcHandlers(): void {
     } catch {
       return pivots.map((pivot) => ({ pivot, items: [] }));
     }
+  });
+
+  ipcMain.handle(IPC.macroOverlayGet, async (_e, rawKey: unknown, rawRange: unknown) => {
+    const key = cleanMacroOverlayKey(rawKey);
+    const range = cleanRange(rawRange);
+    return getMacroOverlay(key, range);
+  });
+
+  ipcMain.handle(IPC.chartSnapshotCapture, async () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return null;
+    try {
+      const image = await mainWindow.webContents.capturePage();
+      return {
+        dataUrl: image.toDataURL(),
+        capturedAt: new Date().toISOString(),
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle(IPC.quantAnalyze, async (_e, rawRequest: unknown) => {
+    const request = cleanQuantInsightRequest(rawRequest);
+    if (!request) {
+      return {
+        ok: false,
+        source: 'deterministic-fallback',
+        answer: 'Quant analysis could not run because the request payload was invalid.',
+        generatedAt: new Date().toISOString(),
+        error: 'Invalid request',
+      };
+    }
+    const response = await analyzeQuant(request);
+    try {
+      saveQuantInsight(request, response);
+    } catch (err) {
+      console.error('[quant] save insight failed:', err);
+    }
+    return response;
+  });
+
+  ipcMain.handle(IPC.quantInsightsGet, async (_e, rawSymbol: unknown, rawRange: unknown) => {
+    const symbol = normalizeSymbol(rawSymbol);
+    if (!symbol) return [];
+    return getQuantInsights(symbol, CHART_RANGES.includes(rawRange as ChartRange) ? (rawRange as ChartRange) : undefined);
+  });
+
+  ipcMain.handle(IPC.llmSettingsGet, () => getLlmSettings());
+
+  ipcMain.handle(IPC.llmSettingsSave, (_e, rawSettings: unknown) => {
+    const s =
+      rawSettings && typeof rawSettings === 'object'
+        ? (rawSettings as Partial<LlmSettings>)
+        : {};
+    return saveLlmSettings({
+      enabled: s.enabled === true,
+      baseUrl: typeof s.baseUrl === 'string' ? s.baseUrl : undefined,
+      model: typeof s.model === 'string' ? s.model : undefined,
+    });
+  });
+
+  ipcMain.handle(IPC.valuationGet, async (_e, rawSymbol: unknown) => {
+    const symbol = normalizeSymbol(rawSymbol);
+    return getValuation(symbol ?? 'SPY');
   });
 
   ipcMain.handle(IPC.openExternal, async (_e, rawUrl: unknown) => {
@@ -280,8 +390,11 @@ function createWindow(): void {
   if (isSmoke) armSmokeMode(win);
 
   const indexPath = path.join(__dirname, '../renderer/index.html');
-  if (smokeModalSymbol) {
-    void win.loadFile(indexPath, { query: { smokeModal: smokeModalSymbol } });
+  const query: Record<string, string> = {};
+  if (smokeModalSymbol) query.smokeModal = smokeModalSymbol;
+  if (forceOnboarding) query.onboarding = '1';
+  if (Object.keys(query).length) {
+    void win.loadFile(indexPath, { query });
   } else {
     void win.loadFile(indexPath);
   }

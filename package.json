@@ -4,13 +4,26 @@
   "version": "1.0.0",
   "description": "Desktop ETF & stock watchlist terminal — holdings-driven news, earnings calendar, and annotated charts",
   "main": "dist/main/main.js",
-  "private": true,
+  "license": "MIT",
+  "author": "",
+  "homepage": "https://github.com/your-org/quant#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/quant.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/quant/issues"
+  },
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
+    "test:quant": "node scripts/test-quant.mjs",
     "start": "npm run build && electron .",
     "smoke": "npm run build && electron . --smoke",
-    "smoke:modal": "npm run build && electron . --smoke --smoke-modal=SPY"
+    "smoke:modal": "npm run build && electron . --smoke --smoke-modal=SPY",
+    "package:mac": "node scripts/package-release.mjs --platform=darwin",
+    "package:win": "node scripts/package-release.mjs --platform=win32 --arch=x64",
+    "package:all": "node scripts/package-release.mjs --platform=darwin,win32"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
