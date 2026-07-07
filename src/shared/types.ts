@@ -97,6 +97,74 @@ export interface ChartData {
   source: DataSource;
 }
 
+export type SignalKind =
+  | 'cup-forming'
+  | 'cup-handle'
+  | 'ma-alignment'
+  | 'near-52w-high'
+  | 'new-52w-high'
+  | 'vcp'
+  | 'volume-surge'
+  | 'golden-cross'
+  | 'macd-bullish'
+  | 'rs-strong'
+  | 'momentum'
+  | 'rebound'
+  | 'mean-reversion';
+
+export interface DetectedSignal {
+  kind: SignalKind;
+  label: string;
+  score: number;
+  detail: string;
+  tone: 'bullish' | 'watch' | 'hot' | 'neutral';
+}
+
+export interface SignalScanRequest {
+  universe?: 'us-stocks' | 'watchlist';
+  symbols?: string[];
+  includeEtfs?: boolean;
+  limit?: number;
+  signalKinds?: SignalKind[];
+}
+
+export interface SignalScanRow {
+  symbol: string;
+  name: string;
+  type: InstrumentType;
+  exchange?: string;
+  price: number | null;
+  changePercent: number | null;
+  asOf: string;
+  score: number;
+  rsRank: number | null;
+  distanceToHighPercent: number | null;
+  volumeRatio20: number | null;
+  signals: DetectedSignal[];
+  sparkline: number[];
+  source: DataSource;
+}
+
+export interface SignalScanSummary {
+  bullishPercent: number;
+  hotCount: number;
+  nearHighCount: number;
+  cupCount: number;
+  maAlignedCount: number;
+  source: DataSource;
+}
+
+export interface SignalScanResult {
+  asOf: string;
+  generatedAt: string;
+  universe: 'us-stocks' | 'watchlist';
+  totalUniverse: number;
+  totalScanned: number;
+  rows: SignalScanRow[];
+  summary: SignalScanSummary;
+  source: DataSource;
+}
+
 /** A significant local high or low detected in the candle series. */
 export interface PivotPoint {
   time: number;  // unix seconds — time of the pivot candle
@@ -222,5 +290,6 @@ export interface QuantApi {
   getLlmSettings(): Promise<LlmSettings>;
   saveLlmSettings(settings: LlmSettings): Promise<LlmSettings>;
   getValuation(symbol: string): Promise<ValuationSnapshot>;
+  scanSignals(request?: SignalScanRequest): Promise<SignalScanResult>;
   openExternal(url: string): Promise<void>;
 }

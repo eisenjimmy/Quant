@@ -9,6 +9,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const tmp = path.join(os.tmpdir(), `quant-test-${process.pid}`);
 mkdirSync(tmp, { recursive: true });
 const outfile = path.join(tmp, 'quant.mjs');
+const signalsOutfile = path.join(tmp, 'signals.mjs');
 
 await build({
   entryPoints: [path.join(root, 'src/shared/quant.ts')],
@@ -20,7 +21,18 @@ await build({
   logLevel: 'silent',
 });
 
+await build({
+  entryPoints: [path.join(root, 'src/shared/signals.ts')],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node20',
+  outfile: signalsOutfile,
+  logLevel: 'silent',
+});
+
 const quant = await import(pathToFileURL(outfile).href);
+const signals = await import(pathToFileURL(signalsOutfile).href);
 
 function candles(count = 90) {
   const out = [];
@@ -61,6 +73,11 @@ const backtest = quant.runBacktest(series);
 assert.ok(backtest.totalTrades >= 0);
 assert.ok(Number.isFinite(backtest.expectancy));
 assert.ok(Number.isFinite(backtest.profitFactor));
+
+const signalScan = signals.detectStockSignals(candles(160));
+assert.ok(signalScan.metrics.lastClose > 0);
+assert.ok(Array.isArray(signalScan.signals));
+assert.ok(signalScan.signals.some((s) => s.kind === 'ma-alignment'));
 
 rmSync(tmp, { recursive: true, force: true });
 console.log('quant tests ok');

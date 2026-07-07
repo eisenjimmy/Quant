@@ -20,6 +20,8 @@ import type {
   QuantInsightRequest,
   QuantInsightResponse,
   Quote,
+  SignalScanRequest,
+  SignalScanResult,
   SymbolSuggestion,
   ValuationSnapshot,
   WatchlistItem,
@@ -59,6 +61,8 @@ const api: QuantApi = {
     ipcRenderer.invoke(IPC.llmSettingsSave, settings),
   getValuation: (symbol: string): Promise<ValuationSnapshot> =>
     ipcRenderer.invoke(IPC.valuationGet, symbol),
+  scanSignals: (request?: SignalScanRequest): Promise<SignalScanResult> =>
+    ipcRenderer.invoke(IPC.signalsScan, request),
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke(IPC.openExternal, url),
 };

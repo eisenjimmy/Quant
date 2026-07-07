@@ -19,6 +19,7 @@ export const IPC = {
   llmSettingsGet: 'llm-settings:get',
   llmSettingsSave: 'llm-settings:save',
   valuationGet: 'valuation:get',
+  signalsScan: 'signals:scan',
   openExternal: 'shell:open-external',
 } as const;
 

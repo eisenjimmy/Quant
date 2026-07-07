@@ -16,6 +16,7 @@ import type {
   MacroOverlayKey,
   PivotPoint,
   QuantInsightRequest,
+  SignalScanRequest,
 } from '../shared/types';
 import { CHART_RANGES } from '../shared/types';
 import { getChart } from './services/chart';
@@ -30,6 +31,7 @@ import { analyzeQuant } from './services/quantAi';
 import { getQuotes } from './services/quotes';
 import { getValuation } from './services/valuation';
 import { sampleChart, sampleEarnings, sampleNews, sampleQuote } from './services/sample';
+import { cleanSignalScanRequest, scanSignals } from './services/signalScanner';
 import { searchSymbols } from './services/symbols';
 import { clampInt, cleanSymbolList, normalizeSymbol, todayYmd } from './services/util';
 import {
@@ -287,6 +289,16 @@ function registerIpcHandlers(): void {
     return getValuation(symbol ?? 'SPY');
   });
 
+  ipcMain.handle(IPC.signalsScan, async (_e, rawRequest: unknown) => {
+    const request: SignalScanRequest = cleanSignalScanRequest(rawRequest);
+    try {
+      return await scanSignals(request);
+    } catch (err) {
+      console.error('[signals] scan failed:', err);
+      return scanSignals({ ...request, symbols: request.symbols?.slice(0, 20), limit: 20 });
+    }
+  });
+
   ipcMain.handle(IPC.openExternal, async (_e, rawUrl: unknown) => {
     if (typeof rawUrl !== 'string') return;
     let parsed: URL;
@@ -402,7 +414,7 @@ function createWindow(): void {
   if (smokeModalSymbol) query.smokeModal = smokeModalSymbol;
   if (smokeRail) query.smokeRail = smokeRail;
   if (smokeOverlays) query.smokeOverlays = smokeOverlays;
-  if (smokeTab === 'analysis' || smokeTab === 'news') query.smokeTab = smokeTab;
+  if (smokeTab === 'analysis' || smokeTab === 'news' || smokeTab === 'signals') query.smokeTab = smokeTab;
   if (smokeChartMode === 'grid' || smokeChartMode === 'single') {
     query.smokeChartMode = smokeChartMode;
   }

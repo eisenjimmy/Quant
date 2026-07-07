@@ -24,6 +24,7 @@ Quant is built for quick market scanning:
 - Expand ETF holdings into a broader market universe.
 - Read holdings-driven news and upcoming earnings.
 - Open a full candlestick chart with pivots, support, resistance, and risk levels.
+- Screen the bundled U.S. stock universe for end-of-day technical signals such as cup bases, moving-average alignment, near-high setups, VCP, volume surges, MACD, and RS strength.
 - Inspect news at each detected swing so price action can be read with the surrounding headline context.
 - Toggle macro overlays directly on the chart: jobs, unemployment, CPI, 10Y yield, oil, and VIX.
 - Review a deterministic Signal Desk before asking an AI agent.
@@ -102,6 +103,14 @@ The onboarding wizard helps a new user choose a starter watchlist, decide whethe
 The main screen keeps the app dense and practical: watchlist on the left, holdings-driven news in the center, and earnings context on the right.
 
 ![Quant dashboard](./docs/assets/screenshots/quant-dashboard.png)
+
+### Signal Board
+
+The Signal Board turns daily candles into a compact scanner view. Quant runs deterministic pattern rules across the selected universe, ranks matching symbols, and labels each row with signal tags such as `Cup`, `MA alignment`, `Near high`, `VCP`, `MACD`, and `RS strong`.
+
+![Quant Signal Board feature banner](./docs/assets/showcase/quant-signal-board-banner.png)
+
+Today the scanner covers the app's bundled U.S. stock directory plus optional watchlist/ETF modes. The API boundary is intentionally separated from the UI so a production bulk end-of-day feed can replace the bundled universe when full-market coverage is required.
 
 ### Chart Modal and Signal Desk
 
@@ -187,6 +196,7 @@ You can also configure this through onboarding. Saved LLM preferences are stored
 | Earnings | Show upcoming earnings for watched names and ETF holdings |
 | Charts | Candlesticks, volume, ranges, pivots, support/resistance, risk overlay |
 | Macro overlays | Jobs, unemployment, CPI, 10Y yield, oil, VIX |
+| Signal Board | End-of-day scan for cup bases, moving-average order, highs, VCP, volume, MACD, rebounds, and relative strength |
 | Signal Desk | Deterministic setup classification, confidence, blockers, risk plan |
 | Quant AI | Agentic chat tab over chart, signal, news, earnings, valuation, macro context |
 | Local persistence | Watchlist, saved Quant AI insights, LLM settings |
@@ -236,6 +246,7 @@ Quant/
         pivotNews.ts          News grouped around chart pivots
         quantAi.ts            Local LLM or deterministic Quant AI memo
         quotes.ts             Watchlist quote data
+        signalScanner.ts      End-of-day technical signal scanner
         valuation.ts          Valuation snapshot and formula estimates
       data/
         etf-holdings.json     Offline holdings fallback
@@ -246,6 +257,7 @@ Quant/
       components/
         OnboardingWizard.tsx  First-run setup wizard
         ChartModal.tsx        Main chart workspace
+        SignalBoard.tsx       Multi-symbol end-of-day signal scanner
         NewsFeed.tsx          Holdings-driven news panel
         Watchlist.tsx         Watchlist and movers panel
         chart/
@@ -258,6 +270,7 @@ Quant/
       ipc.ts                  IPC channel names
       types.ts                Shared API and market data contracts
       quant.ts                Deterministic signal engine
+      signals.ts              Multi-symbol pattern detector
   scripts/
     build.mjs                 esbuild bundle script
     package-release.mjs       Runnable macOS/Windows release folder and archive builder
