@@ -239,7 +239,12 @@ async function packageWindows(arch) {
 }
 
 buildApp();
-rmSync(r('release'), { recursive: true, force: true });
+rmSync(r('release'), {
+  recursive: true,
+  force: true,
+  maxRetries: 5,
+  retryDelay: 150,
+});
 
 for (const platform of requestedPlatforms) {
   if (platform === 'darwin' || platform === 'mac') {

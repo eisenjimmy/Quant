@@ -4,7 +4,9 @@
   display: grid;
   grid-template-rows: 36px minmax(0, 1fr);
   height: 100%;
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ct-bar {
@@ -14,6 +16,8 @@
   padding: 0 12px;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-1);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .ct-tab {
@@ -41,7 +45,9 @@
 }
 
 .ct-panel {
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .al-panel {

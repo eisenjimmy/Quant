@@ -2,6 +2,18 @@
 
 All notable changes to Quant are documented here.
 
+## [1.2.1] - 2026-07-12
+
+### Fixed
+
+- Contained the Market News tab, symbol filter rail, article rows, and headline previews within the center grid column so they cannot paint over the Earnings pane.
+- Added explicit shrink and overflow boundaries to all three application columns and nested center-tab panels.
+- Allowed unusually long headlines to wrap inside their owning panel instead of expanding the center content layer.
+
+### Testing
+
+- Center-tab smoke runs now suppress first-run onboarding, allowing the Market News and Earnings column boundary to be captured directly in an isolated test profile.
+
 ## [1.2.0] - 2026-07-12
 
 ### Added

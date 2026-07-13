@@ -45,7 +45,7 @@ function shouldForceOnboarding(): boolean {
 
 function shouldHideForSmoke(): boolean {
   const params = new URLSearchParams(window.location.search);
-  return params.has('smokeModal') && !params.has('onboarding');
+  return (params.has('smokeModal') || params.has('smokeTab')) && !params.has('onboarding');
 }
 
 function readCompleted(): boolean {

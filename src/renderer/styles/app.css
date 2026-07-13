@@ -50,18 +50,23 @@ button {
 
 .sidebar-slot {
   border-right: 1px solid var(--border-subtle);
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background: var(--surface-1);
 }
 
 .center-slot {
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   border-right: 1px solid var(--border-subtle);
 }
 
 .right-slot {
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* ---- Scrollbars ---- */
@@ -94,6 +99,8 @@ button {
 .preview-wrap {
   position: relative;
   display: block;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .preview-pop {

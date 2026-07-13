@@ -32,7 +32,12 @@ Quant is built for quick market scanning:
 - Save a decision journal entry with the thesis, catalyst, invalidation, and exact signal snapshot.
 - Use Quant AI with no paid cloud LLM API cost by staying in deterministic mode or running a local model server.
 
-## What's New in v1.2.0
+## What's New in v1.2.1
+
+- Market News and its symbol filter rail are now strictly contained within the center workspace and cannot paint over the Earnings pane.
+- Long headlines and previews shrink and wrap within the owning grid column.
+
+### Introduced in v1.2.0
 
 - Evidence-Backed Signal Desk with explicit chart, strategy, backtest, earnings, and valuation provenance.
 - Local Decision Journal with planned, active, invalidated, and closed states.
