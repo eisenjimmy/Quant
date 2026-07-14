@@ -80,13 +80,13 @@ Download the platform archive from the [GitHub Releases page](https://github.com
 macOS:
 
 ```bash
-open Quant-mac-arm64/Quant.app
+open Quant-v1.4.0-mac-arm64/Quant.app
 ```
 
 Windows PowerShell:
 
 ```powershell
-.\Quant-win-x64\Quant.exe
+.\Quant-v1.4.0-win-x64\Quant.exe
 ```
 
 The source repository contains no packaged binaries. Release ZIPs are published as GitHub Release assets, keeping ordinary clones small and avoiding Git LFS downloads.
@@ -396,11 +396,13 @@ npm run package:all
 Outputs:
 
 ```text
-release/Quant-mac-arm64/Quant.app
-release/Quant-mac-arm64.zip
-release/Quant-win-x64/Quant.exe
-release/Quant-win-x64.zip
+release/Quant-v1.4.0-mac-arm64/Quant.app
+release/Quant-v1.4.0-mac-arm64.zip
+release/Quant-v1.4.0-win-x64/Quant.exe
+release/Quant-v1.4.0-win-x64.zip
 ```
+
+The version is embedded in both the release folder and archive name so a new package never silently replaces the previous release.
 
 Upload the ZIP archives as GitHub Release assets. Do not distribute `Quant.exe` alone because it depends on adjacent Electron runtime files.
 
