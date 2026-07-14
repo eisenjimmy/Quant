@@ -23,6 +23,7 @@ Quant is built for quick market scanning:
 - Track ETFs and stocks in a desktop watchlist.
 - Expand ETF holdings into a broader market universe.
 - Read holdings-driven news and upcoming earnings.
+- Read a cross-asset Market Pulse with a transparent regime score, 90-session correlations, and deterministic shock analysis.
 - Open a full candlestick chart with pivots, support, resistance, and risk levels.
 - Screen the bundled U.S. stock universe for end-of-day technical signals such as cup bases, moving-average alignment, near-high setups, VCP, volume surges, MACD, and RS strength.
 - Inspect news at each detected swing so price action can be read with the surrounding headline context.
@@ -32,7 +33,15 @@ Quant is built for quick market scanning:
 - Save a decision journal entry with the thesis, catalyst, invalidation, and exact signal snapshot.
 - Use Quant AI in deterministic mode, through local llama.cpp, or with an optional OpenAI, Gemini, Grok, or Claude API key.
 
-## What's New in v1.3.1
+## What's New in v1.4.0
+
+- New Market Pulse workspace for broad market state without copying the visual overload of institutional terminals.
+- Transparent 0-100 regime score built from equity trend, breadth, volatility stability, and defensive demand.
+- Six-asset monitor covering SPY, QQQ, IWM, TLT, GLD, and USO with momentum, realized volatility, and SMA20 state.
+- 90-session cross-asset correlation matrix and adjustable rates, oil, and volatility scenario analyzer.
+- Uses Quant's existing public Yahoo chart path and explicit `SAMPLE` fallback; no new API key is required.
+
+### Introduced in v1.3.1
 
 - Fixed a Settings-page crash when enabling local llama.cpp.
 - Hardened the provider endpoint and model inputs against the same deferred React event-lifetime failure.
@@ -128,6 +137,12 @@ The onboarding wizard helps a new user choose a starter watchlist, configure loc
 The main screen keeps the app dense and practical: watchlist on the left, holdings-driven news in the center, and earnings context on the right.
 
 ![Quant dashboard](./docs/assets/screenshots/quant-dashboard.png)
+
+### Market Pulse
+
+The Market Pulse tab turns the most useful ideas from dense institutional terminals into one ordered workflow: **current market regime → cross-asset relationships → shock sensitivity**. Its score is deterministic and decomposable, every asset preserves live/sample provenance, and the scenario output is labeled as relative sensitivity rather than a return forecast.
+
+The current monitor uses SPY, QQQ, IWM, TLT, GLD, and USO. The correlation matrix aligns the latest 90 daily return observations, while the scenario analyzer lets users stress rates, oil, and volatility without implying broker execution or options-flow coverage that Quant does not possess.
 
 ### Signal Board
 
@@ -236,6 +251,7 @@ The **Test connection** action sends a minimal completion to verify the current 
 | News | Pull public finance headlines and group them by selected market universe |
 | Swing news | Group headlines around each detected chart swing high or swing low |
 | Earnings | Show upcoming earnings for watched names and ETF holdings |
+| Market Pulse | Cross-asset regime score, six-asset monitor, 90-session correlation matrix, scenario analyzer |
 | Charts | Candlesticks, volume, 1M/3M/1Y multi-chart ranges, pivots, support/resistance, risk overlay |
 | Macro overlays | Jobs, unemployment, CPI, 10Y yield, oil, VIX |
 | Signal Board | End-of-day scan for cup bases, moving-average order, highs, VCP, volume, MACD, rebounds, and relative strength |
@@ -302,6 +318,7 @@ Quant/
       components/
         OnboardingWizard.tsx  First-run setup wizard
         ChartModal.tsx        Main chart workspace
+        MarketPulse.tsx       Regime, cross-asset correlation, and scenario workspace
         SignalBoard.tsx       Multi-symbol end-of-day signal scanner
         NewsFeed.tsx          Holdings-driven news panel
         Watchlist.tsx         Watchlist and movers panel
@@ -314,6 +331,7 @@ Quant/
     shared/
       harness.ts              Immutable numbered evidence-ledger builder
       ipc.ts                  IPC channel names
+      marketPulse.ts          Deterministic regime, correlation, and scenario calculations
       types.ts                Shared API and market data contracts
       quant.ts                Deterministic signal engine
       signals.ts              Multi-symbol pattern detector

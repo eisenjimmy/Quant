@@ -1,5 +1,6 @@
 import { useApp } from '../store';
 import { AnalysisLab } from './AnalysisLab';
+import { MarketPulse } from './MarketPulse';
 import { NewsFeed } from './NewsFeed';
 import { SignalBoard } from './SignalBoard';
 import { SettingsPanel } from './SettingsPanel';
@@ -11,6 +12,15 @@ export function CenterTabs() {
   return (
     <div className="center-tabs">
       <div className="ct-bar" role="tablist" aria-label="Center workspace">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={state.centerTab === 'pulse'}
+          className={state.centerTab === 'pulse' ? 'ct-tab is-active' : 'ct-tab'}
+          onClick={() => actions.setCenterTab('pulse')}
+        >
+          Market Pulse
+        </button>
         <button
           type="button"
           role="tab"
@@ -49,6 +59,7 @@ export function CenterTabs() {
         </button>
       </div>
       <div className="ct-panel">
+        {state.centerTab === 'pulse' && <MarketPulse />}
         {state.centerTab === 'news' && <NewsFeed />}
         {state.centerTab === 'analysis' && <AnalysisLab />}
         {state.centerTab === 'signals' && <SignalBoard />}

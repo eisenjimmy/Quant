@@ -2,6 +2,27 @@
 
 All notable changes to Quant are documented here.
 
+## [1.4.0] - 2026-07-13
+
+### Added
+
+- Added a dedicated Market Pulse tab that compresses broad market state into a transparent 0-100 regime score.
+- Added a six-asset monitor for SPY, QQQ, IWM, TLT, GLD, and USO with 20-session momentum, annualized realized volatility, SMA20 state, and explicit live/sample provenance.
+- Added a 90-session cross-asset correlation matrix with aligned daily observations.
+- Added a deterministic scenario analyzer for rate, oil, and volatility shocks with relative sensitivity views for growth, financials, energy, defensives, and the broad market.
+- Added preset scenarios for a rate shock, oil shock, and combined risk shock.
+
+### Design and Scope
+
+- Kept Market Pulse inside the existing center workspace so it cannot overlap the Earnings pane.
+- Reused the existing Yahoo chart path and bundled sample fallback; no paid data provider or new API key is required.
+- Excluded broker execution and options-flow imitation because Quant does not yet have licensed execution or options-flow data boundaries.
+
+### Testing
+
+- Added deterministic regime, correlation, source-provenance, and scenario-sensitivity coverage.
+- Verified type checking, Quant tests, production build, and an actual Electron Market Pulse smoke render.
+
 ## [1.3.1] - 2026-07-13
 
 ### Fixed

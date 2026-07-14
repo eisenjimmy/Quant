@@ -19,7 +19,7 @@ export interface AppState {
   quotes: Record<string, Quote>;
   holdings: Record<string, HoldingsResult>; // keyed by ETF symbol
   newsFilter: string; // 'all' or a watchlist symbol
-  centerTab: 'news' | 'analysis' | 'signals' | 'settings';
+  centerTab: 'pulse' | 'news' | 'analysis' | 'signals' | 'settings';
   pinnedSymbols: string[];
   modalSymbol: string | null;
 }
@@ -196,7 +196,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('smokeTab');
-    if (tab === 'analysis' || tab === 'news' || tab === 'signals' || tab === 'settings') {
+    if (tab === 'pulse' || tab === 'analysis' || tab === 'news' || tab === 'signals' || tab === 'settings') {
       dispatch({ type: 'centerTab', value: tab });
     }
   }, []);

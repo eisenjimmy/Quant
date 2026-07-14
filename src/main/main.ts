@@ -473,7 +473,7 @@ function createWindow(): void {
   if (smokeModalSymbol) query.smokeModal = smokeModalSymbol;
   if (smokeRail) query.smokeRail = smokeRail;
   if (smokeOverlays) query.smokeOverlays = smokeOverlays;
-  if (smokeTab === 'analysis' || smokeTab === 'news' || smokeTab === 'signals' || smokeTab === 'settings') query.smokeTab = smokeTab;
+  if (smokeTab === 'pulse' || smokeTab === 'analysis' || smokeTab === 'news' || smokeTab === 'signals' || smokeTab === 'settings') query.smokeTab = smokeTab;
   if (smokeChartMode === 'grid' || smokeChartMode === 'single') {
     query.smokeChartMode = smokeChartMode;
   }

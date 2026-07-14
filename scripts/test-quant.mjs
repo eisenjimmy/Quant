@@ -12,6 +12,17 @@ const outfile = path.join(tmp, 'quant.mjs');
 const signalsOutfile = path.join(tmp, 'signals.mjs');
 const harnessOutfile = path.join(tmp, 'harness.mjs');
 const llmOutfile = path.join(tmp, 'llm.mjs');
+const marketPulseOutfile = path.join(tmp, 'market-pulse.mjs');
+
+await build({
+  entryPoints: [path.join(root, 'src/shared/marketPulse.ts')],
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node20',
+  outfile: marketPulseOutfile,
+  logLevel: 'silent',
+});
 
 await build({
   entryPoints: [path.join(root, 'src/shared/quant.ts')],
@@ -57,6 +68,7 @@ const quant = await import(pathToFileURL(outfile).href);
 const signals = await import(pathToFileURL(signalsOutfile).href);
 const harness = await import(pathToFileURL(harnessOutfile).href);
 const llm = await import(pathToFileURL(llmOutfile).href);
+const marketPulse = await import(pathToFileURL(marketPulseOutfile).href);
 
 function candles(count = 90) {
   const out = [];
@@ -123,6 +135,29 @@ assert.ok(signalScan.signals.some((s) => s.kind === 'ma-alignment'));
 assert.equal(llm.providerDefinition('local').baseUrl, 'http://127.0.0.1:8080/v1');
 assert.equal(llm.providerDefinition('claude').requiresApiKey, true);
 assert.equal(llm.normalizeApiBaseUrl('https://api.openai.com/v1///'), 'https://api.openai.com/v1');
+
+const pulseCharts = marketPulse.MARKET_PULSE_ASSETS.map((asset, assetIndex) => ({
+  symbol: asset.symbol,
+  range: '6m',
+  candles: candles(130).map((candle, candleIndex) => {
+    const cycle = Math.sin((candleIndex + assetIndex * 3) / (7 + assetIndex));
+    const drift = assetIndex < 3 ? candleIndex * (0.06 - assetIndex * 0.01) : candleIndex * 0.015;
+    const close = candle.close + cycle * (assetIndex + 1) * 0.25 + drift;
+    return { ...candle, open: close - 0.2, high: close + 0.7, low: close - 0.6, close };
+  }),
+  source: assetIndex === 5 ? 'sample' : 'live',
+}));
+const pulse = marketPulse.buildMarketPulse(pulseCharts);
+assert.equal(pulse.assets.length, 6);
+assert.equal(pulse.correlations.length, 36);
+assert.ok(pulse.regime.score >= 0 && pulse.regime.score <= 100);
+assert.equal(pulse.correlations.find((cell) => cell.row === 'SPY' && cell.column === 'SPY')?.value, 1);
+assert.equal(pulse.liveAssets, 5);
+
+const scenario = marketPulse.analyzeScenario({ ratesBps: 50, oilPercent: 10, volatilityPoints: 5 });
+assert.equal(scenario.length, 5);
+assert.ok(scenario.find((item) => item.id === 'growth').score < 0);
+assert.ok(scenario.find((item) => item.id === 'energy').score > 0);
 
 rmSync(tmp, { recursive: true, force: true });
 console.log('quant tests ok');
