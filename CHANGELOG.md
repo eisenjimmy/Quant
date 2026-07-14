@@ -23,6 +23,10 @@ All notable changes to Quant are documented here.
 - Added deterministic regime, correlation, source-provenance, and scenario-sensitivity coverage.
 - Verified type checking, Quant tests, production build, and an actual Electron Market Pulse smoke render.
 
+### Packaging
+
+- Versioned release folder and archive names prevent a new build from silently replacing a prior local release.
+
 ## [1.3.1] - 2026-07-13
 
 ### Fixed

@@ -1,8 +1,8 @@
 // Creates runnable Electron release folders without requiring electron-builder.
 //
 // Outputs:
-//   release/Quant-mac-<arch>/Quant.app
-//   release/Quant-win-x64/Quant.exe
+//   release/Quant-v<version>-mac-<arch>/Quant.app
+//   release/Quant-v<version>-win-x64/Quant.exe
 //
 // The script builds the app first, then packages the compiled dist/ payload into
 // official Electron runtimes. macOS uses the local Electron runtime when the
@@ -36,6 +36,7 @@ const electronPkg = JSON.parse(readFileSync(r('node_modules/electron/package.jso
 const electronVersion = electronPkg.version;
 const productName = pkg.productName ?? 'Quant';
 const version = pkg.version ?? '0.0.0';
+const releaseName = `${productName}-v${version}`;
 
 const args = new Map(
   process.argv
@@ -201,7 +202,7 @@ async function packageMac(arch) {
   }
 
   const runtimeApp = await resolveMacRuntime(targetArch);
-  const targetDir = r('release', `${productName}-mac-${targetArch}`);
+  const targetDir = r('release', `${releaseName}-mac-${targetArch}`);
   const appPath = path.join(targetDir, `${productName}.app`);
   rmSync(targetDir, { recursive: true, force: true });
   mkdirSync(targetDir, { recursive: true });
@@ -219,12 +220,12 @@ async function packageMac(arch) {
   adHocSignMacApp(appPath);
   copyRuntimeNotice(targetDir);
   log(`macOS app written to ${path.relative(root, appPath)}`);
-  createZipArchive(targetDir, r('release', `${productName}-mac-${targetArch}.zip`));
+  createZipArchive(targetDir, r('release', `${releaseName}-mac-${targetArch}.zip`));
 }
 
 async function packageWindows(arch) {
   const targetArch = arch ?? 'x64';
-  const targetDir = r('release', `${productName}-win-${targetArch}`);
+  const targetDir = r('release', `${releaseName}-win-${targetArch}`);
   const cacheDir = r('.release-cache');
   rmSync(targetDir, { recursive: true, force: true });
   mkdirSync(targetDir, { recursive: true });
@@ -248,7 +249,7 @@ async function packageWindows(arch) {
   makeAppPayload(resourcesDir);
   copyRuntimeNotice(targetDir);
   log(`Windows app written to ${path.relative(root, newExe)}`);
-  createZipArchive(targetDir, r('release', `${productName}-win-${targetArch}.zip`));
+  createZipArchive(targetDir, r('release', `${releaseName}-win-${targetArch}.zip`));
 }
 
 buildApp();
