@@ -1,7 +1,7 @@
 {
   "name": "quant",
   "productName": "Quant",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Desktop ETF & stock watchlist terminal — holdings-driven news, earnings calendar, and annotated charts",
   "main": "dist/main/main.js",
   "license": "MIT",

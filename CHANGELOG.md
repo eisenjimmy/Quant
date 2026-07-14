@@ -2,6 +2,17 @@
 
 All notable changes to Quant are documented here.
 
+## [1.3.1] - 2026-07-13
+
+### Fixed
+
+- Fixed the Quant AI enable checkbox crashing the Settings page with `Cannot read properties of null (reading 'checked')`.
+- Captured checkbox and text-field values before entering React functional state updates so deferred rendering cannot read a cleared synthetic-event target.
+
+### Testing
+
+- Added a real built-renderer interaction regression covering the local llama.cpp checkbox, endpoint field, and model field.
+
 ## [1.3.0] - 2026-07-13
 
 ### Added

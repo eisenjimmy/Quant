@@ -32,7 +32,12 @@ Quant is built for quick market scanning:
 - Save a decision journal entry with the thesis, catalyst, invalidation, and exact signal snapshot.
 - Use Quant AI in deterministic mode, through local llama.cpp, or with an optional OpenAI, Gemini, Grok, or Claude API key.
 
-## What's New in v1.3.0
+## What's New in v1.3.1
+
+- Fixed a Settings-page crash when enabling local llama.cpp.
+- Hardened the provider endpoint and model inputs against the same deferred React event-lifetime failure.
+
+### Introduced in v1.3.0
 
 - Dedicated Quant AI Settings tab with local llama.cpp, OpenAI, Gemini, Grok, and Claude provider profiles.
 - Real connection testing for endpoint, authentication, and model configuration.

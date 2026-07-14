@@ -110,7 +110,10 @@ export function LlmSetupForm({ compact = false, onSaved }: Props) {
         <input
           type="checkbox"
           checked={settings.enabled}
-          onChange={(event) => setSettings((current) => ({ ...current, enabled: event.currentTarget.checked }))}
+          onChange={(event) => {
+            const enabled = event.currentTarget.checked;
+            setSettings((current) => ({ ...current, enabled }));
+          }}
         />
         Enable Quant AI with {definition.label}
       </label>
@@ -120,7 +123,10 @@ export function LlmSetupForm({ compact = false, onSaved }: Props) {
           <span>API endpoint</span>
           <input
             value={settings.baseUrl}
-            onChange={(event) => setSettings((current) => ({ ...current, baseUrl: event.currentTarget.value }))}
+            onChange={(event) => {
+              const baseUrl = event.currentTarget.value;
+              setSettings((current) => ({ ...current, baseUrl }));
+            }}
             spellCheck={false}
           />
         </label>
@@ -128,7 +134,10 @@ export function LlmSetupForm({ compact = false, onSaved }: Props) {
           <span>Model name</span>
           <input
             value={settings.model}
-            onChange={(event) => setSettings((current) => ({ ...current, model: event.currentTarget.value }))}
+            onChange={(event) => {
+              const model = event.currentTarget.value;
+              setSettings((current) => ({ ...current, model }));
+            }}
             spellCheck={false}
           />
         </label>
