@@ -1,7 +1,7 @@
 {
   "name": "quant",
   "productName": "Quant",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Desktop ETF & stock terminal — cross-asset market pulse, evidence-backed signals, news, earnings, and charts",
   "main": "dist/main/main.js",
   "license": "MIT",

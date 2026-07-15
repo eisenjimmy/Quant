@@ -23,7 +23,7 @@ Quant is built for quick market scanning:
 - Track ETFs and stocks in a desktop watchlist.
 - Expand ETF holdings into a broader market universe.
 - Read holdings-driven news and upcoming earnings.
-- Read a cross-asset Market Pulse with a transparent regime score, 90-session correlations, and deterministic shock analysis.
+- Read a cross-asset Market Pulse with a committed five-state regime, evidence provenance, 90-session correlations, and deterministic shock analysis.
 - Open a full candlestick chart with pivots, support, resistance, and risk levels.
 - Screen the bundled U.S. stock universe for end-of-day technical signals such as cup bases, moving-average alignment, near-high setups, VCP, volume surges, MACD, and RS strength.
 - Inspect news at each detected swing so price action can be read with the surrounding headline context.
@@ -33,7 +33,18 @@ Quant is built for quick market scanning:
 - Save a decision journal entry with the thesis, catalyst, invalidation, and exact signal snapshot.
 - Use Quant AI in deterministic mode, through local llama.cpp, or with an optional OpenAI, Gemini, Grok, or Claude API key.
 
-## What's New in v1.4.0
+## What's New in v1.5.0
+
+- Market Regime Engine v2 classifies healthy uptrend, correction, oversold bounce, distribution/downtrend, and recession-defense conditions.
+- Raw evidence must persist for two completed sessions before the committed regime changes; pending transitions remain visible in the interface.
+- Every regime result carries a versioned methodology, data-health status, source-backed evidence ledger, decline attribution, warnings, and deterministic verification checks.
+- The six-asset monitor now uses one year of daily history and exposes 63-session momentum, one-year drawdown, and SMA200 structure.
+- Shared motion tokens add staged loading, tab transitions, evidence entrances, and restrained state-change feedback while honoring `prefers-reduced-motion`.
+- The chart workspace now includes MA20/50/200, log scale, Fit/Latest navigation, keyboard range shortcuts, and a collapsible state-preserving inspector.
+- Range changes retain the current canvas until new data is ready, and crosshair/resize work is animation-frame throttled for smoother interaction.
+- Macro context is presented one lens at a time on an independent selected-range strip, preventing unlike units from distorting the equity price scale.
+
+### Introduced in v1.4.0
 
 - New Market Pulse workspace for broad market state without copying the visual overload of institutional terminals.
 - Transparent 0-100 regime score built from equity trend, breadth, volatility stability, and defensive demand.
@@ -80,13 +91,13 @@ Download the platform archive from the [GitHub Releases page](https://github.com
 macOS:
 
 ```bash
-open Quant-v1.4.0-mac-arm64/Quant.app
+open Quant-v1.5.0-mac-arm64/Quant.app
 ```
 
 Windows PowerShell:
 
 ```powershell
-.\Quant-v1.4.0-win-x64\Quant.exe
+.\Quant-v1.5.0-win-x64\Quant.exe
 ```
 
 The source repository contains no packaged binaries. Release ZIPs are published as GitHub Release assets, keeping ordinary clones small and avoiding Git LFS downloads.
@@ -140,9 +151,11 @@ The main screen keeps the app dense and practical: watchlist on the left, holdin
 
 ### Market Pulse
 
-The Market Pulse tab turns the most useful ideas from dense institutional terminals into one ordered workflow: **current market regime → cross-asset relationships → shock sensitivity**. Its score is deterministic and decomposable, every asset preserves live/sample provenance, and the scenario output is labeled as relative sensitivity rather than a return forecast.
+The Market Pulse tab turns the most useful ideas from dense institutional terminals into one ordered workflow: **committed market regime → source evidence → cross-asset relationships → shock sensitivity**. Its score is deterministic and decomposable, every asset preserves live/sample provenance, and the scenario output is labeled as relative sensitivity rather than a return forecast.
 
-The current monitor uses SPY, QQQ, IWM, TLT, GLD, and USO. The correlation matrix aligns the latest 90 daily return observations, while the scenario analyzer lets users stress rates, oil, and volatility without implying broker execution or options-flow coverage that Quant does not possess.
+The current monitor uses SPY, QQQ, IWM, TLT, GLD, and USO alongside public FRED labor/rate series and Yahoo VIX data. The regime engine keeps separate raw and committed states, requiring two completed sessions of agreement before a transition. The correlation matrix aligns the latest 90 daily return observations, while the scenario analyzer lets users stress rates, oil, and volatility without implying broker execution or options-flow coverage that Quant does not possess.
+
+The regime model is an independent Quant implementation conceptually informed by the ARDS-X methodology in Dennis Kim's [`vibe-investing`](https://github.com/gameworkerkim/vibe-investing) repository. Quant does not copy ARDS-X confidence claims, and its evidence-strength score is explicitly not a calibrated probability or return forecast.
 
 ### Signal Board
 
@@ -154,7 +167,9 @@ Today the scanner covers the app's bundled U.S. stock directory plus optional wa
 
 ### Chart Modal and Signal Desk
 
-Opening a symbol brings up the full chart workspace: candlesticks, volume, pivots, risk levels, deterministic signal scoring, evidence provenance, valuation context, earnings context, and the local Decision Journal.
+Opening a symbol brings up the full chart workspace: candlesticks, volume, pivots, risk levels, deterministic signal scoring, evidence provenance, valuation context, earnings context, and the local Decision Journal. The workspace keeps the current canvas visible while ranges load, preserves each inspector tab's state, and exposes Fit/Latest keyboard navigation for quick recovery after zooming or panning.
+
+Price studies include MA20, MA50, MA200, and a proportional log scale. Macro context is deliberately presented as one selectable lens on an independent mini-scale so unlike units never distort the equity price axis. The inspector can collapse into a full-width chart without discarding an in-progress AI memo or journal entry.
 
 ![Quant chart modal](./docs/assets/screenshots/quant-chart-modal.png)
 
@@ -166,7 +181,7 @@ Quant detects swing highs and swing lows, numbers the key points, and groups hea
 
 ### Macro Overlay System
 
-Quant can layer multiple macro series directly over the active price chart. This is useful when a setup depends on rates, labor data, inflation, oil, volatility, or broad risk appetite.
+Quant can place one macro lens in an independent chart band. This is useful when a setup depends on rates, labor data, inflation, oil, volatility, or broad risk appetite. Restricting the chart to one macro unit at a time keeps the comparison legible without changing the equity price scale.
 
 ![Quant macro overlays](./docs/assets/screenshots/quant-macro-overlays.png)
 
@@ -251,8 +266,8 @@ The **Test connection** action sends a minimal completion to verify the current 
 | News | Pull public finance headlines and group them by selected market universe |
 | Swing news | Group headlines around each detected chart swing high or swing low |
 | Earnings | Show upcoming earnings for watched names and ETF holdings |
-| Market Pulse | Cross-asset regime score, six-asset monitor, 90-session correlation matrix, scenario analyzer |
-| Charts | Candlesticks, volume, 1M/3M/1Y multi-chart ranges, pivots, support/resistance, risk overlay |
+| Market Pulse | Five-state regime with two-session hysteresis, evidence provenance, decline attribution, six-asset monitor, correlations, and scenarios |
+| Charts | Candlesticks, volume, MA20/50/200, log scale, stable range transitions, Fit/Latest navigation, collapsible inspector, pivots, support/resistance, risk overlay |
 | Macro overlays | Jobs, unemployment, CPI, 10Y yield, oil, VIX |
 | Signal Board | End-of-day scan for cup bases, moving-average order, highs, VCP, volume, MACD, rebounds, and relative strength |
 | Signal Desk | Deterministic setup classification, confidence, blockers, risk plan, numbered evidence provenance |
@@ -396,10 +411,10 @@ npm run package:all
 Outputs:
 
 ```text
-release/Quant-v1.4.0-mac-arm64/Quant.app
-release/Quant-v1.4.0-mac-arm64.zip
-release/Quant-v1.4.0-win-x64/Quant.exe
-release/Quant-v1.4.0-win-x64.zip
+release/Quant-v1.5.0-mac-arm64/Quant.app
+release/Quant-v1.5.0-mac-arm64.zip
+release/Quant-v1.5.0-win-x64/Quant.exe
+release/Quant-v1.5.0-win-x64.zip
 ```
 
 The version is embedded in both the release folder and archive name so a new package never silently replaces the previous release.

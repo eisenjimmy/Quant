@@ -2,6 +2,48 @@
 
 All notable changes to Quant are documented here.
 
+## [Unreleased]
+
+## [1.5.0] - 2026-07-15
+
+### Added
+
+- Added Market Regime Engine v2 with five deterministic states: healthy uptrend, correction, oversold bounce, downtrend/distribution, and recession defense.
+- Added a versioned strategy contract containing required inputs, methodology, evidence, data health, warnings, and deterministic verification checks.
+- Added two-session hysteresis with separate raw, pending, and committed regime states persisted locally between refreshes.
+- Added rate-driven, recession-driven, valuation-driven, and broad-risk decline attribution.
+- Added source-backed price, drawdown, breadth, macro-stress, and rate-stress evidence to Market Pulse.
+- Added shared motion tokens, staggered component entrances, richer loading states, tab transitions, and reduced-motion support.
+- Added MA20, MA50, and MA200 studies, proportional log scale, Fit/Latest controls, keyboard shortcuts, and a collapsible chart inspector.
+
+### Changed
+
+- Market Pulse now loads one year of daily history and evaluates 63-session momentum, one-year drawdown, and SMA200 structure.
+- Market Pulse now combines public FRED labor/rate inputs with Yahoo VIX and cross-asset price evidence.
+- Signal Board loading now preserves the final table geometry, reducing visual reflow when scan results arrive.
+- Chart range changes now keep the current canvas mounted until the requested series is ready, while inspector tabs preserve in-progress state when navigating.
+- Replaced simultaneous mixed-unit macro overlays with a focused one-lens selector on an independent mini-scale, preventing macro values from distorting the equity price axis.
+
+### Fixed
+
+- Prevented the initial chart fit from silently preloading history beyond the selected date range.
+- Throttled crosshair and resize updates to animation frames, reducing unnecessary React renders and chart layout work during interaction.
+
+### Validation
+
+- Added deterministic hysteresis checks that prevent same-session refreshes from advancing a pending transition.
+- Added strategy-version, evidence-count, data-health, and verification assertions to the Quant test harness.
+
+### Packaging
+
+- Updated the release generator to retain older versioned archives instead of deleting the entire local release directory before every build.
+- Stripped AppleDouble metadata before macOS signing and after archive creation so packaging remains reliable and clean on external volumes.
+- Produced separate macOS ARM64 and Windows x64 release archives for v1.5.0.
+
+### Attribution
+
+- The independently implemented regime model is conceptually informed by ARDS-X in Dennis Kim's `vibe-investing` repository; no uncalibrated probability claims were imported.
+
 ## [1.4.0] - 2026-07-13
 
 ### Added

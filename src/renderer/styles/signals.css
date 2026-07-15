@@ -148,6 +148,9 @@
   padding: 9px 14px 0;
 }
 
+.sb-summary > .qn-stagger,
+.sb-summary .sb-meter { height: 100%; }
+
 .sb-meter {
   display: grid;
   gap: 2px;
@@ -224,6 +227,7 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: transform var(--t-fast), border-color var(--t-fast), background var(--t-fast);
 }
 
 .sb-row:first-of-type {
@@ -234,6 +238,7 @@
   border-color: var(--border);
   border-radius: var(--r-sm);
   background: var(--surface-1);
+  transform: translateX(2px);
 }
 
 .sb-company {
@@ -359,6 +364,48 @@
   border: 1px dashed var(--border-subtle);
   border-radius: var(--r-sm);
   background: var(--surface-1);
+}
+
+.sb-skeleton { display: grid; }
+.sb-skeleton-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 8px 0 5px;
+  padding: 10px 12px;
+  border: 1px solid rgba(77, 126, 247, .2);
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+}
+.sb-skeleton-status > div { display: grid; gap: 2px; }
+.sb-skeleton-status strong { color: var(--accent-strong); font-size: 10px; }
+.sb-skeleton-status span:not(.sb-scan-dot) { color: var(--text-2); font-size: 9px; }
+.sb-scan-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(77, 126, 247, .35); animation: sb-scan-pulse 1.65s ease-out infinite; }
+.sb-skeleton-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.2fr) minmax(240px, 1.8fr) minmax(140px, .9fr) 108px 76px;
+  align-items: center;
+  gap: 11px;
+  min-height: 76px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.sb-skeleton-row > div { display: grid; gap: 7px; }
+.sb-skeleton-row .is-name { width: 72%; height: 10px; }
+.sb-skeleton-row .is-meta { width: 48%; height: 7px; }
+.sb-skeleton-row .is-signals { width: 86%; height: 21px; }
+.sb-skeleton-row .is-factors { width: 72%; height: 18px; }
+.sb-skeleton-row .is-chart { width: 96px; height: 28px; }
+.sb-skeleton-row .is-price { justify-self: end; width: 62px; height: 24px; }
+
+@keyframes sb-scan-pulse {
+  70% { box-shadow: 0 0 0 8px rgba(77, 126, 247, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(77, 126, 247, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-scan-dot { animation: none; }
+  .sb-row:hover { transform: none; }
 }
 
 .sb-state strong {

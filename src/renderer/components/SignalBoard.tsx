@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type {
   DetectedSignal,
   SignalKind,
@@ -89,6 +90,26 @@ function SummaryMeter({
       <span>{label}</span>
       <strong>{value}</strong>
       <em>{detail}</em>
+    </div>
+  );
+}
+
+function SignalSkeleton() {
+  return (
+    <div className="sb-skeleton" role="status" aria-label="Scanning signal evidence">
+      <div className="sb-skeleton-status">
+        <span className="sb-scan-dot" aria-hidden="true" />
+        <div><strong>Scanning end-of-day evidence</strong><span>Ranking deterministic signals across the selected universe</span></div>
+      </div>
+      {Array.from({ length: 7 }, (_, index) => (
+        <div className="sb-skeleton-row qn-stagger" key={index} style={{ '--motion-index': index } as CSSProperties} aria-hidden="true">
+          <div><span className="skeleton is-name" /><span className="skeleton is-meta" /></div>
+          <span className="skeleton is-signals" />
+          <span className="skeleton is-factors" />
+          <span className="skeleton is-chart" />
+          <span className="skeleton is-price" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -206,42 +227,12 @@ export function SignalBoard() {
       </div>
 
       <div className="sb-summary" aria-label="Signal scan summary">
-        <SummaryMeter
-          label="Coverage"
-          value={coverageValue}
-          detail={coverageDetail}
-          tone="neutral"
-        />
-        <SummaryMeter
-          label="Signal breadth"
-          value={result ? `${result.summary.bullishPercent}%` : '--'}
-          detail={`${activeCount} visible matches`}
-          tone="up"
-        />
-        <SummaryMeter
-          label="Heat"
-          value={result ? String(result.summary.hotCount) : '--'}
-          detail="hot signals"
-          tone="hot"
-        />
-        <SummaryMeter
-          label="Near highs"
-          value={result ? String(result.summary.nearHighCount) : '--'}
-          detail="52W proximity"
-          tone="up"
-        />
-        <SummaryMeter
-          label="Bases"
-          value={result ? String(result.summary.cupCount) : '--'}
-          detail="cup patterns"
-          tone="neutral"
-        />
-        <SummaryMeter
-          label="MA order"
-          value={result ? String(result.summary.maAlignedCount) : '--'}
-          detail="bullish stacks"
-          tone="up"
-        />
+        <div className="qn-stagger" style={{ '--motion-index': 0 } as CSSProperties}><SummaryMeter label="Coverage" value={coverageValue} detail={coverageDetail} tone="neutral" /></div>
+        <div className="qn-stagger" style={{ '--motion-index': 1 } as CSSProperties}><SummaryMeter label="Signal breadth" value={result ? `${result.summary.bullishPercent}%` : '--'} detail={`${activeCount} visible matches`} tone="up" /></div>
+        <div className="qn-stagger" style={{ '--motion-index': 2 } as CSSProperties}><SummaryMeter label="Heat" value={result ? String(result.summary.hotCount) : '--'} detail="hot signals" tone="hot" /></div>
+        <div className="qn-stagger" style={{ '--motion-index': 3 } as CSSProperties}><SummaryMeter label="Near highs" value={result ? String(result.summary.nearHighCount) : '--'} detail="52W proximity" tone="up" /></div>
+        <div className="qn-stagger" style={{ '--motion-index': 4 } as CSSProperties}><SummaryMeter label="Bases" value={result ? String(result.summary.cupCount) : '--'} detail="cup patterns" tone="neutral" /></div>
+        <div className="qn-stagger" style={{ '--motion-index': 5 } as CSSProperties}><SummaryMeter label="MA order" value={result ? String(result.summary.maAlignedCount) : '--'} detail="bullish stacks" tone="up" /></div>
       </div>
 
       <div className="sb-filters" aria-label="Signal filters">
@@ -259,10 +250,7 @@ export function SignalBoard() {
 
       <div className="sb-list" aria-busy={loading}>
         {loading && (
-          <div className="sb-state">
-            <strong>Scanning end-of-day candles</strong>
-            <span>Running deterministic pattern rules over the selected universe.</span>
-          </div>
+          <SignalSkeleton />
         )}
         {!loading && error && (
           <div className="sb-state is-error">
@@ -278,13 +266,14 @@ export function SignalBoard() {
         )}
         {!loading &&
           !error &&
-          rows.map((row) => {
+          rows.map((row, index) => {
             const changeUp = (row.changePercent ?? 0) >= 0;
             return (
               <button
                 type="button"
-                className="sb-row"
+                className="sb-row qn-stagger"
                 key={row.symbol}
+                style={{ '--motion-index': Math.min(index, 14) } as CSSProperties}
                 onClick={() => actions.openChart(row.symbol)}
               >
                 <span className="sb-company">
