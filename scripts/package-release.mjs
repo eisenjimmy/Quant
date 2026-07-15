@@ -216,6 +216,9 @@ async function packageMac(arch) {
   const resourcesDir = path.join(appPath, 'Contents', 'Resources');
   rmSync(path.join(resourcesDir, 'default_app.asar'), { force: true });
   makeAppPayload(resourcesDir);
+  // External/APFS-compatible volumes can materialize AppleDouble `._*` files
+  // during the runtime copy. They are not app content and break codesign.
+  removeFinderMetadata(appPath);
   clearMacExtendedAttributes(appPath);
   adHocSignMacApp(appPath);
   copyRuntimeNotice(targetDir);
@@ -253,12 +256,9 @@ async function packageWindows(arch) {
 }
 
 buildApp();
-rmSync(r('release'), {
-  recursive: true,
-  force: true,
-  maxRetries: 5,
-  retryDelay: 150,
-});
+// Each target is versioned and replaces only its own matching folder/archive.
+// Preserve previous releases so a new package cannot erase older local builds.
+mkdirSync(r('release'), { recursive: true });
 
 for (const platform of requestedPlatforms) {
   if (platform === 'darwin' || platform === 'mac') {
@@ -270,4 +270,5 @@ for (const platform of requestedPlatforms) {
   }
 }
 
+removeFinderMetadata(r('release'));
 log('done');

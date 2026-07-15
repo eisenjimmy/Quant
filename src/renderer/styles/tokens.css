@@ -43,8 +43,12 @@
   --shadow-modal: 0 24px 64px rgba(2, 5, 12, 0.65);
 
   /* Motion */
-  --t-fast: 120ms ease;
-  --t-med: 200ms ease;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 120ms var(--ease-standard);
+  --t-med: 200ms var(--ease-standard);
+  --t-view: 280ms;
+  --motion-distance: 8px;
 
   /* Z-layers */
   --z-dropdown: 40;

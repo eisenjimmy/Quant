@@ -58,12 +58,14 @@ export function CenterTabs() {
           Settings
         </button>
       </div>
-      <div className="ct-panel">
-        {state.centerTab === 'pulse' && <MarketPulse />}
-        {state.centerTab === 'news' && <NewsFeed />}
-        {state.centerTab === 'analysis' && <AnalysisLab />}
-        {state.centerTab === 'signals' && <SignalBoard />}
-        {state.centerTab === 'settings' && <SettingsPanel />}
+      <div className="ct-panel" role="tabpanel">
+        <div className="ct-view" key={state.centerTab}>
+          {state.centerTab === 'pulse' && <MarketPulse />}
+          {state.centerTab === 'news' && <NewsFeed />}
+          {state.centerTab === 'analysis' && <AnalysisLab />}
+          {state.centerTab === 'signals' && <SignalBoard />}
+          {state.centerTab === 'settings' && <SettingsPanel />}
+        </div>
       </div>
     </div>
   );

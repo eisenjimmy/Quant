@@ -41,7 +41,15 @@ export function useChartData(
       setState({ data: cached, loading: false, error: null, generation: gen });
       return;
     }
-    setState({ data: null, loading: true, error: null, generation: gen });
+    // Keep the previous canvas alive while the new range resolves. ChartModal
+    // marks it as transitional and withholds stale analysis, avoiding a full
+    // lightweight-charts teardown/recreate cycle on every range switch.
+    setState((current) => ({
+      data: current.data,
+      loading: true,
+      error: null,
+      generation: gen,
+    }));
     let cancelled = false;
     api
       .getChart(symbol, range)
@@ -56,7 +64,12 @@ export function useChartData(
           err instanceof Error && err.message
             ? err.message
             : 'The chart request failed.';
-        setState({ data: null, loading: false, error: message, generation: gen });
+        setState((current) => ({
+          data: current.data,
+          loading: false,
+          error: message,
+          generation: gen,
+        }));
       });
     return () => {
       cancelled = true;

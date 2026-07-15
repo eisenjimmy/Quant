@@ -22,6 +22,7 @@ import {
   ColorType,
   CrosshairMode,
   LineStyle,
+  PriceScaleMode,
   createChart,
 } from 'lightweight-charts';
 import type {
@@ -63,6 +64,9 @@ const C = {
   treasury10y: '#54c6eb',
   oil: '#d6b36a',
   vix: '#a875ff',
+  ma20: '#54c6eb',
+  ma50: '#e8a33d',
+  ma200: '#a875ff',
   crosshair: 'rgba(154, 166, 189, 0.45)',
   crosshairLabel: '#1b2438',
 } as const;
@@ -70,6 +74,14 @@ const C = {
 export interface ChartCanvasHandle {
   /** Best-effort: centre the visible range on the given pivot (by index). */
   scrollToPivot(index: number): void;
+  fitContent(): void;
+  scrollToLatest(): void;
+}
+
+export interface ChartStudySelection {
+  ma20: boolean;
+  ma50: boolean;
+  ma200: boolean;
 }
 
 interface ChartCanvasProps {
@@ -84,6 +96,8 @@ interface ChartCanvasProps {
   macroOverlays: MacroOverlaySeries[];
   riskPlan: RiskRewardPlan | null;
   showRiskOverlay: boolean;
+  studies: ChartStudySelection;
+  logScale: boolean;
   onNeedMoreHistory?: () => void;
 }
 
@@ -98,6 +112,8 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       macroOverlays,
       riskPlan,
       showRiskOverlay,
+      studies,
+      logScale,
       onNeedMoreHistory,
     },
     ref,
@@ -112,7 +128,9 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
     const stopSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
     const target1SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
     const target2SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
-    const macroSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+    const ma20SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const ma50SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+    const ma200SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
     const indexByTimeRef = useRef<Map<number, number>>(new Map());
     const needHistoryRef = useRef(onNeedMoreHistory);
     const historyRequestAtRef = useRef(0);
@@ -123,6 +141,10 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       count: number;
     } | null>(null);
     const hoverTimeRef = useRef<number | null>(null);
+    const pendingHoverTimeRef = useRef<number | null>(null);
+    const crosshairFrameRef = useRef<number | null>(null);
+    const resizeFrameRef = useRef<number | null>(null);
+    const userNavigatedRef = useRef(false);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
 
     const indexByTime = useMemo(() => {
@@ -208,30 +230,61 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       const stopSeries = chart.addLineSeries(levelOptions(C.down));
       const target1Series = chart.addLineSeries(levelOptions(C.up));
       const target2Series = chart.addLineSeries({ ...levelOptions(C.up), lineStyle: LineStyle.Dashed });
+      const studyOptions = (color: string, lineWidth: 1 | 2 = 1) => ({
+        color,
+        lineWidth,
+        lineStyle: LineStyle.Solid,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      }) as const;
+      const ma20Series = chart.addLineSeries(studyOptions(C.ma20));
+      const ma50Series = chart.addLineSeries(studyOptions(C.ma50));
+      const ma200Series = chart.addLineSeries(studyOptions(C.ma200, 2));
 
       const onCrosshairMove = (param: MouseEventParams<Time>) => {
         const t = typeof param.time === 'number' ? param.time : null;
-        if (t === hoverTimeRef.current) return;
-        hoverTimeRef.current = t;
-        setHoverTime(t);
+        pendingHoverTimeRef.current = t;
+        if (crosshairFrameRef.current !== null) return;
+        crosshairFrameRef.current = window.requestAnimationFrame(() => {
+          crosshairFrameRef.current = null;
+          const next = pendingHoverTimeRef.current;
+          if (next === hoverTimeRef.current) return;
+          hoverTimeRef.current = next;
+          setHoverTime(next);
+        });
       };
       chart.subscribeCrosshairMove(onCrosshairMove);
       const onVisibleRange = () => {
         const visible = chart.timeScale().getVisibleLogicalRange();
         const now = Date.now();
-        if (visible && visible.from < 8 && now - historyRequestAtRef.current > 1200) {
+        if (
+          userNavigatedRef.current &&
+          visible &&
+          visible.from < -2 &&
+          now - historyRequestAtRef.current > 1200
+        ) {
           historyRequestAtRef.current = now;
           needHistoryRef.current?.();
         }
       };
       chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRange);
+      const markNavigated = () => {
+        userNavigatedRef.current = true;
+      };
+      host.addEventListener('wheel', markNavigated, { passive: true });
+      host.addEventListener('pointerdown', markNavigated, { passive: true });
 
       const observer = new ResizeObserver((entries) => {
         const rect = entries[entries.length - 1].contentRect;
         if (rect.width > 0 && rect.height > 0) {
-          chart.applyOptions({
-            width: Math.floor(rect.width),
-            height: Math.floor(rect.height),
+          if (resizeFrameRef.current !== null) window.cancelAnimationFrame(resizeFrameRef.current);
+          resizeFrameRef.current = window.requestAnimationFrame(() => {
+            resizeFrameRef.current = null;
+            chart.applyOptions({
+              width: Math.floor(rect.width),
+              height: Math.floor(rect.height),
+            });
           });
         }
       });
@@ -246,9 +299,16 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       stopSeriesRef.current = stopSeries;
       target1SeriesRef.current = target1Series;
       target2SeriesRef.current = target2Series;
+      ma20SeriesRef.current = ma20Series;
+      ma50SeriesRef.current = ma50Series;
+      ma200SeriesRef.current = ma200Series;
 
       return () => {
+        if (crosshairFrameRef.current !== null) window.cancelAnimationFrame(crosshairFrameRef.current);
+        if (resizeFrameRef.current !== null) window.cancelAnimationFrame(resizeFrameRef.current);
         observer.disconnect();
+        host.removeEventListener('wheel', markNavigated);
+        host.removeEventListener('pointerdown', markNavigated);
         chart.unsubscribeCrosshairMove(onCrosshairMove);
         chart.timeScale().unsubscribeVisibleLogicalRangeChange(onVisibleRange);
         chart.remove();
@@ -261,7 +321,9 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
         stopSeriesRef.current = null;
         target1SeriesRef.current = null;
         target2SeriesRef.current = null;
-        macroSeriesRef.current.clear();
+        ma20SeriesRef.current = null;
+        ma50SeriesRef.current = null;
+        ma200SeriesRef.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -332,6 +394,37 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       setHoverTime(null);
     }, [data, indexByTime]);
 
+    useEffect(() => {
+      const movingAverage = (period: number): LineData<Time>[] => {
+        if (data.candles.length < period) return [];
+        let sum = 0;
+        const points: LineData<Time>[] = [];
+        for (let index = 0; index < data.candles.length; index++) {
+          sum += data.candles[index].close;
+          if (index >= period) sum -= data.candles[index - period].close;
+          if (index >= period - 1) {
+            points.push({
+              time: data.candles[index].time as UTCTimestamp,
+              value: sum / period,
+            });
+          }
+        }
+        return points;
+      };
+      ma20SeriesRef.current?.setData(studies.ma20 ? movingAverage(20) : []);
+      ma50SeriesRef.current?.setData(studies.ma50 ? movingAverage(50) : []);
+      ma200SeriesRef.current?.setData(studies.ma200 ? movingAverage(200) : []);
+    }, [data, studies.ma20, studies.ma50, studies.ma200]);
+
+    useEffect(() => {
+      chartRef.current?.applyOptions({
+        rightPriceScale: {
+          borderColor: C.grid,
+          mode: logScale ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
+        },
+      });
+    }, [logScale]);
+
     // ---- Support / resistance rays ----
     useEffect(() => {
       const toLine = (pts: TrendLines['support']): LineData<Time>[] =>
@@ -358,57 +451,6 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       setLevel(target1SeriesRef.current, riskPlan?.target1 ?? null);
       setLevel(target2SeriesRef.current, riskPlan?.target2 ?? null);
     }, [data, riskPlan, showRiskOverlay]);
-
-    useEffect(() => {
-      const chart = chartRef.current;
-      if (!chart) return;
-      const existing = macroSeriesRef.current;
-      const wanted = new Set(macroOverlays.map((s) => s.key));
-      for (const [key, series] of existing) {
-        if (!wanted.has(key as MacroOverlaySeries['key'])) {
-          chart.removeSeries(series);
-          existing.delete(key);
-        }
-      }
-
-      chart.applyOptions({
-        leftPriceScale: {
-          visible: macroOverlays.length > 0,
-          borderColor: C.grid,
-        },
-      });
-
-      for (const overlay of macroOverlays) {
-        let series = existing.get(overlay.key);
-        if (!series) {
-          series = chart.addLineSeries({
-            priceScaleId: 'left',
-            color:
-              overlay.key === 'jobs'
-                ? C.jobs
-                : overlay.key === 'unemployment'
-                  ? C.unemployment
-                  : overlay.key === 'inflation'
-                    ? C.inflation
-                    : overlay.key === 'treasury10y'
-                      ? C.treasury10y
-                      : overlay.key === 'oil'
-                        ? C.oil
-                        : C.vix,
-            lineWidth: 1,
-            lineStyle: LineStyle.Solid,
-            priceLineVisible: false,
-            lastValueVisible: true,
-            crosshairMarkerVisible: false,
-          });
-          series.priceScale().applyOptions({ scaleMargins: { top: 0.15, bottom: 0.25 } });
-          existing.set(overlay.key, series);
-        }
-        series.setData(
-          overlay.points.map((p) => ({ time: p.time as UTCTimestamp, value: p.value })),
-        );
-      }
-    }, [macroOverlays]);
 
     // ---- Pivot markers (numbered once news lands, accent on panel hover) ----
     useEffect(() => {
@@ -447,6 +489,12 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
             to: candleIndex + half,
           });
         },
+        fitContent() {
+          chartRef.current?.timeScale().fitContent();
+        },
+        scrollToLatest() {
+          chartRef.current?.timeScale().scrollToPosition(0, true);
+        },
       }),
       [pivots],
     );
@@ -464,6 +512,42 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : null;
       return { c, change, changePercent };
     }, [data, hoverTime, indexByTime]);
+    const macroContext = useMemo(() => {
+      const overlay = macroOverlays[0];
+      const points = overlay?.points.filter((point) => Number.isFinite(point.time) && Number.isFinite(point.value)) ?? [];
+      if (!overlay || points.length === 0) return null;
+      const firstTime = points[0].time;
+      const lastTime = points[points.length - 1].time;
+      const values = points.map((point) => point.value);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const timeSpan = Math.max(1, lastTime - firstTime);
+      const valueSpan = Math.max(0.0001, max - min);
+      const polyline = points.map((point) => {
+        const x = ((point.time - firstTime) / timeSpan) * 1000;
+        const y = 86 - ((point.value - min) / valueSpan) * 72;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      const label = overlay.key === 'jobs'
+        ? 'JOBS'
+        : overlay.key === 'unemployment'
+          ? 'UNEMP'
+          : overlay.key === 'inflation'
+            ? 'CPI'
+            : overlay.key === 'treasury10y'
+              ? '10Y'
+              : overlay.key === 'oil'
+                ? 'OIL'
+                : 'VIX';
+      return {
+        key: overlay.key,
+        label,
+        value: points[points.length - 1].value.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+        min: min.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+        max: max.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+        polyline,
+      };
+    }, [macroOverlays]);
 
     return (
       <div className="cm-canvas">
@@ -499,6 +583,21 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
               <span className="cm-legend-lbl">Vol</span>
               {formatVolume(legend.c.volume)}
             </span>
+          </div>
+        )}
+        {macroContext && (
+          <div className={`cm-macro-context is-${macroContext.key}`} aria-label={`${macroContext.label} range context ${macroContext.value}`}>
+            <div>
+              <span aria-hidden="true" />
+              <b>{macroContext.label}</b>
+              <em>{macroContext.value}</em>
+              <small>selected-range context · independent scale</small>
+            </div>
+            <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="0" y1="86" x2="1000" y2="86" />
+              <polyline points={macroContext.polyline} />
+            </svg>
+            <span className="cm-macro-context-range"><i>{macroContext.max}</i><i>{macroContext.min}</i></span>
           </div>
         )}
       </div>

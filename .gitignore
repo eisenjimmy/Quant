@@ -1,6 +1,8 @@
 node_modules/
 npm-debug.log*
 .DS_Store
+._*
+output/
 .local-bin/
 
 # Local configuration
