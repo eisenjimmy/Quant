@@ -8,6 +8,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { IPC } from '../shared/ipc';
+import { FORECAST_V1 } from '../shared/forecast';
 import type {
   AddWatchlistResult,
   ChartRange,
@@ -22,6 +23,20 @@ import type {
 import { CHART_RANGES } from '../shared/types';
 import { getChart } from './services/chart';
 import { getEarnings } from './services/earnings';
+import { getForecastHistory } from './services/forecastData';
+import {
+  evaluateForecast,
+  hasCompatibleAdjustmentBasis,
+  unavailableForecastComparison,
+} from './services/forecastEvaluator';
+import { ForecastJobRegistry } from './services/forecastJobRegistry';
+import { createKronosForecastRunner } from './services/forecastOrchestrator';
+import { ForecastStore } from './services/forecastStore';
+import {
+  bundledForecastWorkerAvailable,
+  bundledForecastWorkerExecutable,
+} from './services/forecastRuntime';
+import { KronosWorker } from './services/kronosWorker';
 import { getHoldings } from './services/holdings';
 import { getLlmSettings, resolveTransientLlmSettings, saveLlmSettings } from './services/llmSettings';
 import { testLlmConnection } from './services/llmProvider';
@@ -42,12 +57,50 @@ import {
   addToWatchlist,
   getWatchlist,
   removeFromWatchlist,
+  reorderWatchlist,
 } from './services/watchlistStore';
 
 const MAX_QUOTE_SYMBOLS = 60;
 const MAX_NEWS_SYMBOLS = 40;
 const MAX_EARNINGS_SYMBOLS = 60;
 const MAX_PIVOTS = 12;
+const configuredForecastPython = process.env.QUANT_FORECAST_PYTHON?.trim();
+const forecastVenvPython = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  '.forecast-venv',
+  process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python',
+);
+const bundledForecastExecutable = bundledForecastWorkerExecutable(
+  process.resourcesPath,
+);
+const useBundledForecastWorker = bundledForecastWorkerAvailable(
+  process.resourcesPath,
+);
+const forecastWorker = new KronosWorker({
+  scriptPath: useBundledForecastWorker
+    ? undefined
+    : path.join(__dirname, 'forecast-engine', 'worker.py'),
+  workerExecutable: useBundledForecastWorker
+    ? bundledForecastExecutable
+    : undefined,
+  pythonExecutable: useBundledForecastWorker
+    ? undefined
+    : configuredForecastPython ||
+      (fs.existsSync(forecastVenvPython) ? forecastVenvPython : undefined),
+  onStderr: (message) => console.error(`[forecast-worker] ${message}`),
+});
+const forecastJobs = new ForecastJobRegistry({
+  loadHistory: getForecastHistory,
+  onDiagnostic: (message) =>
+    console.error(`[forecast-jobs] ${message}`),
+  runner: createKronosForecastRunner(forecastWorker, {
+    onDiagnostic: (message) =>
+      console.error(`[forecast-orchestrator] ${message}`),
+  }),
+});
+let forecastStore: ForecastStore | null = null;
 
 // ---------------------------------------------------------------------------
 // CLI flags (smoke mode)
@@ -183,6 +236,14 @@ function registerIpcHandlers(): void {
       return symbol ? removeFromWatchlist(symbol) : getWatchlist();
     } catch {
       return [];
+    }
+  });
+
+  ipcMain.handle(IPC.watchlistReorder, (_e, rawOrder: unknown) => {
+    try {
+      return reorderWatchlist(rawOrder);
+    } catch {
+      return getWatchlist();
     }
   });
 
@@ -358,6 +419,87 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle(IPC.forecastRun, (_e, rawRequest: unknown) => {
+    return forecastJobs.start(rawRequest);
+  });
+
+  ipcMain.handle(IPC.forecastCancel, (_e, rawJobId: unknown) => {
+    return forecastJobs.cancel(rawJobId);
+  });
+
+  ipcMain.handle(IPC.forecastGetJob, (_e, rawSymbol: unknown) => {
+    return forecastJobs.getJob(rawSymbol);
+  });
+
+  ipcMain.handle(IPC.forecastListSaved, (_e, rawSymbol: unknown) => {
+    return forecastStore?.list(rawSymbol) ?? [];
+  });
+
+  ipcMain.handle(IPC.forecastGetSaved, (_e, rawForecastId: unknown) => {
+    return forecastStore?.get(rawForecastId) ?? null;
+  });
+
+  ipcMain.handle(
+    IPC.forecastGetHistoricalComparison,
+    async (_e, rawForecastId: unknown) => {
+      const record = forecastStore?.get(rawForecastId);
+      if (!record) return null;
+      const evaluatedAt = new Date().toISOString();
+      try {
+        const history = await getForecastHistory({
+          symbol: record.symbol,
+          assetType: record.assetType,
+          requestedAt: evaluatedAt,
+          paths: FORECAST_V1.pathCount,
+          horizonBars: FORECAST_V1.predictionBars,
+          interval: FORECAST_V1.interval,
+        });
+        if (
+          !hasCompatibleAdjustmentBasis(record.provenance, history, {
+            timestamp: record.provenance.latestCompletedCandleAt,
+            close: record.lastHistoricalClose,
+          })
+        ) {
+          console.warn(
+            `[forecast-evaluator] Adjustment basis changed for ${record.symbol}; historical comparison was skipped.`,
+          );
+          return unavailableForecastComparison(evaluatedAt);
+        }
+        const comparison = evaluateForecast(
+          record,
+          history.candles,
+          evaluatedAt,
+        );
+        if (comparison.evaluation.status !== 'unavailable') {
+          const updated = forecastStore?.updateEvaluation(
+            record.id,
+            comparison.evaluation,
+          );
+          if (updated) {
+            comparison.evaluation = updated.evaluation;
+          }
+        }
+        return comparison;
+      } catch (error) {
+        console.warn(
+          `[forecast-evaluator] Historical comparison unavailable for ${record.symbol}: ${String(error)}`,
+        );
+        return unavailableForecastComparison(evaluatedAt);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC.forecastSetOverlayEnabled,
+    (_e, rawSymbol: unknown, rawEnabled: unknown) => {
+      return forecastStore?.setOverlayEnabled(rawSymbol, rawEnabled) ?? false;
+    },
+  );
+
+  ipcMain.handle(IPC.forecastGetOverlayEnabled, (_e, rawSymbol: unknown) => {
+    return forecastStore?.getOverlayEnabled(rawSymbol) ?? false;
+  });
+
   ipcMain.handle(IPC.openExternal, async (_e, rawUrl: unknown) => {
     if (typeof rawUrl !== 'string') return;
     let parsed: URL;
@@ -441,6 +583,16 @@ function armSmokeMode(win: BrowserWindow): void {
 
 let mainWindow: BrowserWindow | null = null;
 
+forecastJobs.subscribe((event) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(IPC.forecastProgress, event);
+  if (event.stage === 'completed') {
+    mainWindow.webContents.send(IPC.forecastCompleted, event);
+  } else if (event.stage === 'failed') {
+    mainWindow.webContents.send(IPC.forecastFailed, event);
+  }
+});
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1560,
@@ -506,7 +658,26 @@ if (!gotLock) {
     console.error('[main] unhandled rejection:', reason);
   });
 
+  app.on('before-quit', () => {
+    forecastWorker.terminate();
+  });
+
   app.whenReady().then(() => {
+    try {
+      forecastStore = new ForecastStore(
+        path.join(app.getPath('userData'), 'forecasts', 'v1'),
+        {
+          onWarning: (message) => console.warn(`[forecast-store] ${message}`),
+        },
+      );
+      forecastJobs.configureRecordSaver((record) => {
+        if (!forecastStore) throw new Error('Forecast storage is unavailable');
+        return forecastStore.save(record);
+      });
+    } catch (error) {
+      forecastStore = null;
+      console.error('[forecast-store] initialization failed:', error);
+    }
     registerIpcHandlers();
     createWindow();
 

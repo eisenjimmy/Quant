@@ -1,8 +1,12 @@
 // Preload: exposes the QuantApi bridge on window.quant via contextBridge.
 // Every method maps 1:1 to an ipcMain.handle registration in main.ts.
 
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../shared/ipc';
+import type {
+  ForecastApi,
+  ForecastProgressEvent,
+} from '../shared/forecast';
 import type {
   AddWatchlistResult,
   ChartData,
@@ -31,12 +35,48 @@ import type {
   WatchlistItem,
 } from '../shared/types';
 
+type ForecastEventChannel =
+  | typeof IPC.forecastProgress
+  | typeof IPC.forecastCompleted
+  | typeof IPC.forecastFailed;
+
+function subscribeToForecast(
+  channel: ForecastEventChannel,
+  callback: (event: ForecastProgressEvent) => void,
+): () => void {
+  const listener = (_event: IpcRendererEvent, payload: ForecastProgressEvent) => {
+    callback(payload);
+  };
+  ipcRenderer.on(channel, listener);
+  return () => ipcRenderer.removeListener(channel, listener);
+}
+
+const forecast: ForecastApi = {
+  run: (request) => ipcRenderer.invoke(IPC.forecastRun, request),
+  cancel: (jobId) => ipcRenderer.invoke(IPC.forecastCancel, jobId),
+  getJob: (symbol) => ipcRenderer.invoke(IPC.forecastGetJob, symbol),
+  listSaved: (symbol) => ipcRenderer.invoke(IPC.forecastListSaved, symbol),
+  getSaved: (forecastId) => ipcRenderer.invoke(IPC.forecastGetSaved, forecastId),
+  getHistoricalComparison: (forecastId) =>
+    ipcRenderer.invoke(IPC.forecastGetHistoricalComparison, forecastId),
+  setOverlayEnabled: (symbol, enabled) =>
+    ipcRenderer.invoke(IPC.forecastSetOverlayEnabled, symbol, enabled),
+  getOverlayEnabled: (symbol) =>
+    ipcRenderer.invoke(IPC.forecastGetOverlayEnabled, symbol),
+  onProgress: (callback) => subscribeToForecast(IPC.forecastProgress, callback),
+  onCompleted: (callback) => subscribeToForecast(IPC.forecastCompleted, callback),
+  onFailed: (callback) => subscribeToForecast(IPC.forecastFailed, callback),
+};
+
 const api: QuantApi = {
+  forecast,
   getWatchlist: (): Promise<WatchlistItem[]> => ipcRenderer.invoke(IPC.watchlistGet),
   addToWatchlist: (symbol: string): Promise<AddWatchlistResult> =>
     ipcRenderer.invoke(IPC.watchlistAdd, symbol),
   removeFromWatchlist: (symbol: string): Promise<WatchlistItem[]> =>
     ipcRenderer.invoke(IPC.watchlistRemove, symbol),
+  reorderWatchlist: (symbols: string[]): Promise<WatchlistItem[]> =>
+    ipcRenderer.invoke(IPC.watchlistReorder, symbols),
   searchSymbols: (query: string): Promise<SymbolSuggestion[]> =>
     ipcRenderer.invoke(IPC.symbolsSearch, query),
   getQuotes: (symbols: string[]): Promise<Quote[]> =>

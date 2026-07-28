@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "artifacts": {
+    "model": {
+      "repoId": "NeoQuasar/Kronos-mini",
+      "revision": "7fdcc628d87f325ccdbcae0a372622ca7e6813aa",
+      "files": [
+        {
+          "path": "config.json",
+          "size": 225,
+          "sha256": "70daca2cb11e3a979dd6b8ac12ee08e2aace877acf28f5b8dfb4fe5609736201"
+        },
+        {
+          "path": "model.safetensors",
+          "size": 16440776,
+          "sha256": "a7d5f37e2e9fbd9891f7d7d4f72574512dd1f704fee14223e0a8cd0fbf54197c"
+        }
+      ]
+    },
+    "tokenizer": {
+      "repoId": "NeoQuasar/Kronos-Tokenizer-2k",
+      "revision": "b22fb9cb30a2de2f77e8b617169cd756ba964a08",
+      "files": [
+        {
+          "path": "config.json",
+          "size": 301,
+          "sha256": "0b30a443affb03e05a876a083857de9164f899feb7b4d261da02c485c9a3e3b6"
+        },
+        {
+          "path": "model.safetensors",
+          "size": 15842376,
+          "sha256": "b97ec46b3b72160509e289183eaf7bdf5f0dac5bb9b49522f6d46638a99a8717"
+        }
+      ]
+    }
+  }
+}

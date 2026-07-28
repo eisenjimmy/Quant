@@ -4,6 +4,9 @@ npm-debug.log*
 ._*
 output/
 .local-bin/
+.forecast-venv/
+__pycache__/
+*.py[cod]
 
 # Local configuration
 .env
@@ -14,3 +17,5 @@ output/
 # Local release build artifacts and download cache
 .release-cache/
 release/
+sidecars/
+build/quant-forecast-worker/

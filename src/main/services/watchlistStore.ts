@@ -12,6 +12,7 @@ import type {
 import { directoryLookup } from './dataFiles';
 import { searchSymbols } from './symbols';
 import { normalizeSymbol } from './util';
+import { applyWatchlistOrder } from '../../shared/watchlist';
 
 const SEED: Array<{ symbol: string; name: string; type: InstrumentType }> = [
   { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust', type: 'etf' },
@@ -91,6 +92,15 @@ export function removeFromWatchlist(symbol: string): WatchlistItem[] {
   items = list;
   save(list);
   return [...list];
+}
+
+export function reorderWatchlist(rawOrder: unknown): WatchlistItem[] {
+  const current = load();
+  const reordered = applyWatchlistOrder(current, rawOrder);
+  if (!reordered) return [...current];
+  items = reordered;
+  save(reordered);
+  return [...reordered];
 }
 
 async function resolveSymbol(

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "commit": "67b630e67f6a18c9e9be918d9b4337c960db1e9a",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "acb2d194d378204e5f2be4dcd24d39ecac437903620c790c3315a96dab388fdc"
+    },
+    {
+      "path": "model/__init__.py",
+      "sha256": "f8f856ca3fedadcaac97e196be23d1aeda1c3c9ffe8903d66d43ea3bcac6240c"
+    },
+    {
+      "path": "model/kronos.py",
+      "sha256": "0a5f90282e2039c2de0771473419715c845def154896dbd0f5747837e6241032"
+    },
+    {
+      "path": "model/module.py",
+      "sha256": "a07edbadc0e96804c8158c021bbc6063bb7cc43b34d7fc470d5c8ff2005a409f"
+    }
+  ]
+}

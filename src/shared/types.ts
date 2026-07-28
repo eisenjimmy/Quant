@@ -365,9 +365,11 @@ export type AddWatchlistResult =
 
 /** The API exposed on window.quant by src/main/preload.ts. */
 export interface QuantApi {
+  forecast: import('./forecast').ForecastApi;
   getWatchlist(): Promise<WatchlistItem[]>;
   addToWatchlist(symbol: string): Promise<AddWatchlistResult>;
   removeFromWatchlist(symbol: string): Promise<WatchlistItem[]>;
+  reorderWatchlist(symbols: string[]): Promise<WatchlistItem[]>;
   searchSymbols(query: string): Promise<SymbolSuggestion[]>;
   getQuotes(symbols: string[]): Promise<Quote[]>;
   getHoldings(etfSymbol: string): Promise<HoldingsResult>;

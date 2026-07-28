@@ -1,6 +1,5 @@
-// One watchlist row: symbol / name / ETF-holdings meta on the left, price and
-// change chip on the right, a hover-revealed remove button, and a brief
-// green/red background pulse on the price when it changes between renders.
+// One watchlist row: a normal click opens the chart, a completed drag reorders
+// the row, and right-click delegates to the watchlist's one-action menu.
 
 import '../../styles/watchlist.css';
 import React, { memo, useEffect, useRef, useState } from 'react';
@@ -11,25 +10,18 @@ interface WatchlistRowProps {
   quote: Quote | undefined;
   holdings: HoldingsResult | undefined;
   onOpen: (symbol: string) => void;
-  onRemove: (symbol: string) => void;
-}
-
-function XIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      <line x1="6" y1="6" x2="18" y2="18" />
-      <line x1="18" y1="6" x2="6" y2="18" />
-    </svg>
-  );
+  isDragging: boolean;
+  dropPosition: 'before' | 'after' | null;
+  onContextMenu: (
+    symbol: string,
+    x: number,
+    y: number,
+    trigger: HTMLElement,
+  ) => void;
+  onPointerDragStart: (symbol: string) => void;
+  onPointerDragMove: (x: number, y: number) => void;
+  onPointerDragEnd: () => void;
+  onKeyboardMove: (symbol: string, direction: -1 | 1) => void;
 }
 
 function formatPrice(price: number): string {
@@ -77,9 +69,22 @@ export const WatchlistRow = memo(function WatchlistRow({
   quote,
   holdings,
   onOpen,
-  onRemove,
+  isDragging,
+  dropPosition,
+  onContextMenu,
+  onPointerDragStart,
+  onPointerDragMove,
+  onPointerDragEnd,
+  onKeyboardMove,
 }: WatchlistRowProps) {
   const price = quote?.price ?? null;
+  const suppressOpenRef = useRef(false);
+  const pointerDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    started: boolean;
+  } | null>(null);
 
   // Flash the price cell when the value moves between renders. The ref keeps
   // the previous price; the incrementing key remounts the span so the CSS
@@ -105,12 +110,83 @@ export const WatchlistRow = memo(function WatchlistRow({
   const isSample = quote?.source === 'sample';
 
   return (
-    <li className="wl-row-wrap">
+    <li
+      className={`wl-row-wrap${isDragging ? ' is-dragging' : ''}${
+        dropPosition ? ` drop-${dropPosition}` : ''
+      }`}
+      data-testid={`watchlist-row-${item.symbol}`}
+      data-watchlist-symbol={item.symbol}
+    >
       <button
         type="button"
         className="wl-row"
-        onClick={() => onOpen(item.symbol)}
-        title={`Open ${item.symbol} chart`}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          pointerDragRef.current = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            started: false,
+          };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const drag = pointerDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          if (
+            !drag.started &&
+            Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) >= 6
+          ) {
+            drag.started = true;
+            suppressOpenRef.current = true;
+            onPointerDragStart(item.symbol);
+          }
+          if (!drag.started) return;
+          event.preventDefault();
+          onPointerDragMove(event.clientX, event.clientY);
+        }}
+        onPointerUp={(event) => {
+          const drag = pointerDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          pointerDragRef.current = null;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+          if (!drag.started) return;
+          event.preventDefault();
+          onPointerDragEnd();
+          window.setTimeout(() => {
+            suppressOpenRef.current = false;
+          }, 0);
+        }}
+        onPointerCancel={(event) => {
+          const drag = pointerDragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          pointerDragRef.current = null;
+          if (drag.started) onPointerDragEnd();
+          suppressOpenRef.current = false;
+        }}
+        onClick={() => {
+          if (suppressOpenRef.current) return;
+          onOpen(item.symbol);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          onContextMenu(
+            item.symbol,
+            event.clientX || rect.left + 24,
+            event.clientY || rect.top + rect.height / 2,
+            event.currentTarget,
+          );
+        }}
+        onKeyDown={(event) => {
+          if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+          event.preventDefault();
+          onKeyboardMove(item.symbol, event.key === 'ArrowUp' ? -1 : 1);
+        }}
+        aria-describedby="wl-reorder-help"
+        title={`Open ${item.symbol}. Drag to reorder or right-click to delete.`}
       >
         <span className="wl-row-main">
           <span className="wl-sym-line">
@@ -139,18 +215,6 @@ export const WatchlistRow = memo(function WatchlistRow({
           </span>
           <span className={`wl-chip num wl-chip-${chip.variant}`}>{chip.text}</span>
         </span>
-      </button>
-      <button
-        type="button"
-        className="wl-remove"
-        aria-label={`Remove ${item.symbol} from watchlist`}
-        title={`Remove ${item.symbol}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(item.symbol);
-        }}
-      >
-        <XIcon />
       </button>
     </li>
   );

@@ -23,6 +23,8 @@ import { api } from '../api';
 import { useApp } from '../store';
 import { ChartCanvas } from './chart/ChartCanvas';
 import type { ChartCanvasHandle, ChartStudySelection } from './chart/ChartCanvas';
+import { ForecastPanel } from './chart/ForecastPanel';
+import { useForecast } from './chart/useForecast';
 import { PivotNewsPanel } from './chart/PivotNewsPanel';
 import { QuantAgentPanel } from './chart/QuantAgentPanel';
 import { QuantDecisionPanel } from './chart/QuantDecisionPanel';
@@ -47,7 +49,8 @@ const DEFAULT_RANGE: ChartRange = '1y';
 const EMPTY_LINES: TrendLines = { support: [], resistance: [] };
 const SETTINGS_KEY = 'quant.chart.settings.v1';
 
-type RailTab = 'signal' | 'ai' | 'news';
+type RailTab = 'signal' | 'forecast' | 'ai' | 'news';
+const RAIL_TAB_ORDER: RailTab[] = ['signal', 'forecast', 'ai', 'news'];
 
 interface ChartModalSettings {
   showRiskOverlay: boolean;
@@ -79,7 +82,9 @@ function settingsFromQuery(settings: ChartModalSettings): ChartModalSettings {
     studies: { ...settings.studies },
   };
   const rail = params.get('smokeRail');
-  if (rail === 'signal' || rail === 'ai' || rail === 'news') next.activeRailTab = rail;
+  if (rail === 'signal' || rail === 'forecast' || rail === 'ai' || rail === 'news') {
+    next.activeRailTab = rail;
+  }
 
   const overlayParam = params.get('smokeOverlays');
   if (overlayParam === 'all') {
@@ -134,7 +139,9 @@ function loadSettings(): ChartModalSettings {
           ? parsed.soundEnabled
           : DEFAULT_SETTINGS.soundEnabled,
       activeRailTab:
-        parsed.activeRailTab === 'news' || parsed.activeRailTab === 'ai'
+        parsed.activeRailTab === 'news' ||
+        parsed.activeRailTab === 'ai' ||
+        parsed.activeRailTab === 'forecast'
           ? parsed.activeRailTab
           : 'signal',
     };
@@ -224,6 +231,8 @@ function overlayLabel(key: MacroOverlayKey): string {
 
 export function ChartModal({ symbol }: { symbol: string }) {
   const { state, actions } = useApp();
+  const watchItem = state.watchlist.find((item) => item.symbol === symbol);
+  const forecast = useForecast(symbol, watchItem?.type);
   const initialSettings = useMemo(loadSettings, []);
   const [range, setRange] = useState<ChartRange>(DEFAULT_RANGE);
   const [highlight, setHighlight] = useState<number | null>(null);
@@ -334,12 +343,18 @@ export function ChartModal({ symbol }: { symbol: string }) {
   // Close takes focus on mount; Escape is also supported for a conventional dialog exit.
   useEffect(() => closeRef.current?.focus(), []);
 
-  const handlePanelKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
       actions.closeChart();
-      return;
-    }
+    };
+    window.addEventListener('keydown', closeOnEscape, true);
+    return () => window.removeEventListener('keydown', closeOnEscape, true);
+  }, [actions]);
+
+  const handlePanelKeyDown = useCallback((e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
     const editable = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
     if (!editable && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -365,7 +380,7 @@ export function ChartModal({ symbol }: { symbol: string }) {
     const panel = panelRef.current;
     if (!panel) return;
     const focusables = panel.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
     if (focusables.length === 0) return;
     const first = focusables[0];
@@ -383,9 +398,31 @@ export function ChartModal({ symbol }: { symbol: string }) {
   const handleSelectPivot = useCallback((i: number) => {
     canvasRef.current?.scrollToPivot(i);
   }, []);
+  const handleRailTabKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, current: RailTab) => {
+      let nextIndex: number | null = null;
+      const currentIndex = RAIL_TAB_ORDER.indexOf(current);
+      if (event.key === 'ArrowRight') {
+        nextIndex = (currentIndex + 1) % RAIL_TAB_ORDER.length;
+      } else if (event.key === 'ArrowLeft') {
+        nextIndex = (currentIndex - 1 + RAIL_TAB_ORDER.length) % RAIL_TAB_ORDER.length;
+      } else if (event.key === 'Home') {
+        nextIndex = 0;
+      } else if (event.key === 'End') {
+        nextIndex = RAIL_TAB_ORDER.length - 1;
+      }
+      if (nextIndex === null) return;
+      event.preventDefault();
+      const nextTab = RAIL_TAB_ORDER[nextIndex];
+      setActiveRailTab(nextTab);
+      requestAnimationFrame(() => {
+        document.getElementById(`cm-tab-${nextTab}-button`)?.focus();
+      });
+    },
+    [],
+  );
 
   // ---- Header quote: live quote first, chart meta as fallback ----
-  const watchItem = state.watchlist.find((w) => w.symbol === symbol);
   const isWatched = Boolean(watchItem);
   const quote = state.quotes[symbol];
   const price = quote?.price ?? data?.regularMarketPrice ?? null;
@@ -612,6 +649,11 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 showRiskOverlay={showRiskOverlay}
                 studies={studies}
                 logScale={logScale}
+                forecastRecord={forecast.selectedRecord}
+                forecastActual={
+                  forecast.historicalComparison?.actual ?? []
+                }
+                showForecastOverlay={forecast.overlayEnabled}
                 onNeedMoreHistory={loadOlder}
               />
             )}
@@ -683,9 +725,23 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 aria-selected={activeRailTab === 'signal'}
                 aria-controls="cm-tab-signal"
                 id="cm-tab-signal-button"
+                tabIndex={activeRailTab === 'signal' ? 0 : -1}
                 onClick={() => setActiveRailTab('signal')}
+                onKeyDown={(event) => handleRailTabKeyDown(event, 'signal')}
               >
                 Signal Desk
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeRailTab === 'forecast'}
+                aria-controls="cm-tab-forecast"
+                id="cm-tab-forecast-button"
+                tabIndex={activeRailTab === 'forecast' ? 0 : -1}
+                onClick={() => setActiveRailTab('forecast')}
+                onKeyDown={(event) => handleRailTabKeyDown(event, 'forecast')}
+              >
+                Forecast
               </button>
               <button
                 type="button"
@@ -693,7 +749,9 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 aria-selected={activeRailTab === 'ai'}
                 aria-controls="cm-tab-ai"
                 id="cm-tab-ai-button"
+                tabIndex={activeRailTab === 'ai' ? 0 : -1}
                 onClick={() => setActiveRailTab('ai')}
+                onKeyDown={(event) => handleRailTabKeyDown(event, 'ai')}
               >
                 Quant AI
               </button>
@@ -703,7 +761,9 @@ export function ChartModal({ symbol }: { symbol: string }) {
                 aria-selected={activeRailTab === 'news'}
                 aria-controls="cm-tab-news"
                 id="cm-tab-news-button"
+                tabIndex={activeRailTab === 'news' ? 0 : -1}
                 onClick={() => setActiveRailTab('news')}
+                onKeyDown={(event) => handleRailTabKeyDown(event, 'news')}
               >
                 News
                 {!loading && !error && pivots.length > 0 && (
@@ -726,6 +786,21 @@ export function ChartModal({ symbol }: { symbol: string }) {
                   range={range}
                   chartSource={settledData?.source}
                   chartAsOf={settledData?.candles.length ? new Date(settledData.candles[settledData.candles.length - 1].time * 1000).toISOString() : undefined}
+                />
+              </div>
+              <div
+                id="cm-tab-forecast"
+                role="tabpanel"
+                aria-labelledby="cm-tab-forecast-button"
+                className="cm-rail-panel"
+                hidden={activeRailTab !== 'forecast'}
+              >
+                <ForecastPanel
+                  symbol={symbol}
+                  assetType={watchItem?.type}
+                  chartSource={settledData?.source}
+                  chartReady={Boolean(settledData?.candles.length)}
+                  controller={forecast}
                 />
               </div>
               <div

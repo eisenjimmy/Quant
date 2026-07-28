@@ -36,10 +36,22 @@ import type {
   Time,
   UTCTimestamp,
 } from 'lightweight-charts';
+import type {
+  ForecastActualPoint,
+  ForecastRecord,
+} from '../../../shared/forecast';
 import type { ChartData, PivotPoint } from '../../../shared/types';
 import type { MacroOverlaySeries } from '../../../shared/types';
 import type { RiskRewardPlan } from '../../../shared/quant';
 import type { TrendLines } from './analysis';
+import {
+  ForecastBandPrimitive,
+  createForecastOverlayDisposer,
+} from './ForecastBandPrimitive';
+import {
+  buildForecastOverlayModel,
+  buildObservedCloseLine,
+} from './forecastOverlayModel';
 import {
   formatCandleTime,
   formatPrice,
@@ -98,6 +110,9 @@ interface ChartCanvasProps {
   showRiskOverlay: boolean;
   studies: ChartStudySelection;
   logScale: boolean;
+  forecastRecord: ForecastRecord | null;
+  forecastActual: ForecastActualPoint[];
+  showForecastOverlay: boolean;
   onNeedMoreHistory?: () => void;
 }
 
@@ -114,6 +129,9 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       showRiskOverlay,
       studies,
       logScale,
+      forecastRecord,
+      forecastActual,
+      showForecastOverlay,
       onNeedMoreHistory,
     },
     ref,
@@ -145,6 +163,8 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
     const crosshairFrameRef = useRef<number | null>(null);
     const resizeFrameRef = useRef<number | null>(null);
     const userNavigatedRef = useRef(false);
+    const forecastOverlayCleanupRef = useRef<() => void>(() => undefined);
+    const previousForecastIdRef = useRef<string | null>(null);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
 
     const indexByTime = useMemo(() => {
@@ -152,6 +172,20 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       for (let i = 0; i < data.candles.length; i++) map.set(data.candles[i].time, i);
       return map;
     }, [data]);
+    const forecastOverlay = useMemo(
+      () =>
+        showForecastOverlay && forecastRecord
+          ? buildForecastOverlayModel(forecastRecord)
+          : null,
+      [forecastRecord, showForecastOverlay],
+    );
+    const observedCloseLine = useMemo(
+      () =>
+        showForecastOverlay
+          ? buildObservedCloseLine(forecastActual)
+          : null,
+      [forecastActual, showForecastOverlay],
+    );
 
     // ---- Chart lifecycle: create once, tear down fully on unmount ----
     useEffect(() => {
@@ -304,6 +338,7 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       ma200SeriesRef.current = ma200Series;
 
       return () => {
+        forecastOverlayCleanupRef.current();
         if (crosshairFrameRef.current !== null) window.cancelAnimationFrame(crosshairFrameRef.current);
         if (resizeFrameRef.current !== null) window.cancelAnimationFrame(resizeFrameRef.current);
         observer.disconnect();
@@ -424,6 +459,67 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
         },
       });
     }, [logScale]);
+
+    useEffect(() => {
+      forecastOverlayCleanupRef.current();
+      forecastOverlayCleanupRef.current = () => undefined;
+
+      const chart = chartRef.current;
+      if (!chart || !forecastOverlay) {
+        previousForecastIdRef.current = null;
+        return;
+      }
+      const replacingForecast = previousForecastIdRef.current !== null;
+
+      const medianSeries = chart.addLineSeries({
+        color: '#54c6eb',
+        lineWidth: 2,
+        lineStyle: LineStyle.Solid,
+        priceLineVisible: false,
+        lastValueVisible: true,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius: 3,
+        title: 'Forecast median',
+      });
+      medianSeries.setData(forecastOverlay.median);
+      const bandPrimitive = new ForecastBandPrimitive(forecastOverlay);
+      medianSeries.attachPrimitive(bandPrimitive);
+      const actualSeries =
+        observedCloseLine && observedCloseLine.length > 0
+          ? chart.addLineSeries({
+              color: C.warn,
+              lineWidth: 2,
+              lineStyle: LineStyle.Dashed,
+              priceLineVisible: false,
+              lastValueVisible: true,
+              crosshairMarkerVisible: true,
+              crosshairMarkerRadius: 3,
+              title: 'Observed close',
+            })
+          : null;
+      actualSeries?.setData(observedCloseLine ?? []);
+
+      const disposeForecast = createForecastOverlayDisposer(
+        chart,
+        medianSeries,
+        bandPrimitive,
+        () => chartRef.current === chart,
+      );
+      let disposed = false;
+      const dispose = () => {
+        if (disposed) return;
+        disposed = true;
+        disposeForecast();
+        if (actualSeries && chartRef.current === chart) {
+          chart.removeSeries(actualSeries);
+        }
+      };
+      forecastOverlayCleanupRef.current = dispose;
+      previousForecastIdRef.current = forecastRecord?.id ?? 'forecast';
+      if (!replacingForecast) chart.timeScale().fitContent();
+
+      return dispose;
+    }, [forecastOverlay, forecastRecord?.id, observedCloseLine]);
 
     // ---- Support / resistance rays ----
     useEffect(() => {
@@ -552,6 +648,21 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
     return (
       <div className="cm-canvas">
         <div ref={hostRef} className="cm-canvas-host" />
+        {forecastOverlay && (
+          <div
+            className="cm-forecast-legend"
+            aria-label={`Forecast overlay: median line, p10 to p90 sampled range, forecast start${
+              observedCloseLine?.length ? ', and observed closes' : ''
+            }`}
+          >
+            <span><i className="is-median" />Forecast median</span>
+            <span><i className="is-band" />P10–P90 sampled range</span>
+            <span><i className="is-start" />Forecast starts</span>
+            {observedCloseLine && observedCloseLine.length > 0 && (
+              <span><i className="is-actual" />Observed close</span>
+            )}
+          </div>
+        )}
         {legend && (
           <div className="cm-legend num">
             <span className="cm-legend-date">

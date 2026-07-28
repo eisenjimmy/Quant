@@ -8,7 +8,13 @@
 //   dist/renderer/index.html <- src/renderer/index.html
 
 import { build } from 'esbuild';
-import { cpSync, copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import {
+  cpSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+} from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,6 +64,40 @@ await build({
 copyFileSync(r('src/renderer/index.html'), r('dist/renderer/index.html'));
 if (existsSync(r('src/main/data'))) {
   cpSync(r('src/main/data'), r('dist/main/data'), { recursive: true });
+}
+const forecastRuntimeFiles = [
+  'worker.py',
+  'protocol.py',
+  'engine.py',
+  'path_runner.py',
+  'metrics.py',
+  'kronos_adapter.py',
+  'verify_setup.py',
+  'requirements.txt',
+  'model-manifest.json',
+];
+const forecastDist = r('dist/main/forecast-engine');
+rmSync(forecastDist, { recursive: true, force: true });
+mkdirSync(forecastDist, { recursive: true });
+for (const filename of forecastRuntimeFiles) {
+  const source = r('forecast-engine', filename);
+  if (existsSync(source)) copyFileSync(source, path.join(forecastDist, filename));
+}
+
+const kronosRuntimeFiles = [
+  ['vendor/KRONOS_COMMIT.txt', 'vendor/KRONOS_COMMIT.txt'],
+  ['vendor/KRONOS_SOURCE_MANIFEST.json', 'vendor/KRONOS_SOURCE_MANIFEST.json'],
+  ['vendor/Kronos/LICENSE', 'vendor/Kronos/LICENSE'],
+  ['vendor/Kronos/model/__init__.py', 'vendor/Kronos/model/__init__.py'],
+  ['vendor/Kronos/model/kronos.py', 'vendor/Kronos/model/kronos.py'],
+  ['vendor/Kronos/model/module.py', 'vendor/Kronos/model/module.py'],
+];
+const vendorDist = r('dist/main/vendor');
+rmSync(vendorDist, { recursive: true, force: true });
+for (const [source, destination] of kronosRuntimeFiles) {
+  const target = r('dist/main', destination);
+  mkdirSync(path.dirname(target), { recursive: true });
+  copyFileSync(r(source), target);
 }
 
 console.log('build ok');

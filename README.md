@@ -1,6 +1,6 @@
 # Quant
 
-Quant is an open-source desktop market terminal for tracking ETFs and stocks. It combines a watchlist, holdings-driven news, earnings context, annotated charts, macro overlays, evidence-backed signal scoring, a decision journal, and an optional verified Quant AI harness.
+Quant is an open-source desktop market terminal for tracking ETFs and stocks. It combines a reorderable watchlist, holdings-driven news, earnings context, annotated charts, macro overlays, evidence-backed signal scoring, local probabilistic forecasts, a decision journal, and an optional verified Quant AI harness.
 
 The core promise is simple: useful market context without paid API lock-in. Quant can run with public market data sources and deterministic signal analysis, use a private llama.cpp server, or connect to an optional OpenAI, Gemini, Grok, or Claude account. No cloud LLM API key is required for the default experience.
 
@@ -13,6 +13,7 @@ The core promise is simple: useful market context without paid API lock-in. Quan
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1b2438" alt="Supported platforms">
   <img src="https://img.shields.io/badge/local%20AI-optional-1fbf75" alt="Optional local AI">
   <img src="https://img.shields.io/badge/cloud%20LLM-optional-1fbf75" alt="Optional cloud LLM providers">
+  <img src="https://img.shields.io/badge/release-v2.0.0-4d7ef7" alt="Quant v2.0.0">
   <img src="https://img.shields.io/badge/license-MIT-6d95ff" alt="MIT license">
 </p>
 
@@ -20,7 +21,7 @@ The core promise is simple: useful market context without paid API lock-in. Quan
 
 Quant is built for quick market scanning:
 
-- Track ETFs and stocks in a desktop watchlist.
+- Track, reorder, and remove ETFs and stocks in a persistent desktop watchlist.
 - Expand ETF holdings into a broader market universe.
 - Read holdings-driven news and upcoming earnings.
 - Read a cross-asset Market Pulse with a committed five-state regime, evidence provenance, 90-session correlations, and deterministic shock analysis.
@@ -31,18 +32,44 @@ Quant is built for quick market scanning:
 - Review a deterministic Signal Desk before asking an AI agent.
 - Inspect numbered evidence with source and quality status before acting on a signal.
 - Save a decision journal entry with the thesis, catalyst, invalidation, and exact signal snapshot.
+- Run an on-demand local Kronos forecast with 30 sampled paths across 24 future trading-hour bars.
+- Reopen immutable forecast snapshots and compare them with timestamp-aligned observed closes.
 - Use Quant AI in deterministic mode, through local llama.cpp, or with an optional OpenAI, Gemini, Grok, or Claude API key.
 
-## What's New in v1.5.0
+## What's New in v2.0.0
+
+New:
+
+- **Forecast any ticker:** Run a local 24-trading-hour probabilistic forecast.
+- **Clear progress:** See a measured ETA while forecasting, or cancel the run.
+- **Chart overlay:** Toggle the median path and P10–P90 sampled range.
+- **Saved forecasts:** Reopen each run for seven days and compare it with observed closes.
+- **Right-click and delete:** Remove a stock or ETF directly from the watchlist.
+- **Drag and reorder:** Click, hold, and move watchlist entries; their order is saved.
+- **Keyboard friendly:** Press Escape to close charts and Alt + Arrow to reorder entries.
+- **Native packaging:** Forecast support ships inside the macOS ARM64 and Windows x64 apps.
+
+### Forecast Demo
+
+Click the preview to watch the 12-second demo:
+
+[![Watch the Quant v2.0 forecast demo](./docs/assets/demos/quant-v2-forecast-demo.png)](./docs/assets/demos/quant-v2-forecast-demo.mp4)
+
+### How the Forecast Works
+
+- **Input:** Up to 360 completed hourly price and volume bars.
+- **Model:** The local Kronos-mini time-series model generates 30 independent paths.
+- **Result:** Quant shows the median path, sampled P10–P90 range, upside frequency, and volatility diagnostics.
+- **Horizon:** 24 future trading-hour bars, usually about four U.S. market sessions.
+- **History:** Every successful run is saved as an immutable snapshot for seven days.
+- **Limits:** It is not a chat LLM and does not use news, earnings, macro releases, or unexpected events.
+
+### Introduced in v1.5.0
 
 - Market Regime Engine v2 classifies healthy uptrend, correction, oversold bounce, distribution/downtrend, and recession-defense conditions.
 - Raw evidence must persist for two completed sessions before the committed regime changes; pending transitions remain visible in the interface.
 - Every regime result carries a versioned methodology, data-health status, source-backed evidence ledger, decline attribution, warnings, and deterministic verification checks.
-- The six-asset monitor now uses one year of daily history and exposes 63-session momentum, one-year drawdown, and SMA200 structure.
-- Shared motion tokens add staged loading, tab transitions, evidence entrances, and restrained state-change feedback while honoring `prefers-reduced-motion`.
-- The chart workspace now includes MA20/50/200, log scale, Fit/Latest navigation, keyboard range shortcuts, and a collapsible state-preserving inspector.
-- Range changes retain the current canvas until new data is ready, and crosshair/resize work is animation-frame throttled for smoother interaction.
-- Macro context is presented one lens at a time on an independent selected-range strip, preventing unlike units from distorting the equity price scale.
+- The chart workspace includes MA20/50/200, log scale, Fit/Latest navigation, keyboard range shortcuts, and a collapsible state-preserving inspector.
 
 ### Introduced in v1.4.0
 
@@ -91,13 +118,13 @@ Download the platform archive from the [GitHub Releases page](https://github.com
 macOS:
 
 ```bash
-open Quant-v1.5.0-mac-arm64/Quant.app
+open Quant-v2.0.0-mac-arm64/Quant.app
 ```
 
 Windows PowerShell:
 
 ```powershell
-.\Quant-v1.5.0-win-x64\Quant.exe
+.\Quant-v2.0.0-win-x64\Quant.exe
 ```
 
 The source repository contains no packaged binaries. Release ZIPs are published as GitHub Release assets, keeping ordinary clones small and avoiding Git LFS downloads.
@@ -110,6 +137,7 @@ Requirements:
 
 - Node.js 20 or newer
 - npm
+- Python 3.10–3.12 for development forecast setup
 - macOS or Windows
 - Internet access for live public market data
 
@@ -134,6 +162,8 @@ npm start
 ```
 
 `npm start` builds the Electron app and launches the desktop window.
+The core terminal works without Python. Run `npm run setup:forecast` only when
+you want to use or develop the local Kronos forecast.
 
 ## Screenshots
 
@@ -172,6 +202,17 @@ Opening a symbol brings up the full chart workspace: candlesticks, volume, pivot
 Price studies include MA20, MA50, MA200, and a proportional log scale. Macro context is deliberately presented as one selectable lens on an independent mini-scale so unlike units never distort the equity price axis. The inspector can collapse into a full-width chart without discarding an in-progress AI memo or journal entry.
 
 ![Quant chart modal](./docs/assets/screenshots/quant-chart-modal.png)
+
+### Local Probabilistic Forecasts
+
+Open any ticker, select **Forecast**, and choose **Run Forecast**. Quant runs
+Kronos-mini locally, validates the 30 sampled paths, and displays the median
+plus sampled P10–P90 range on the chart.
+
+- The 24-bar horizon follows trading hours, skipping overnight periods, weekends, holidays, and early-close gaps.
+- Each rerun creates a separate seven-day snapshot; earlier forecasts are never overwritten.
+- **Historical comparison** aligns available observed closes with the original forecast timestamps.
+- Forecasts are experimental sampled data, not calibrated certainty or investment advice.
 
 ### News at Each Swing
 
@@ -261,7 +302,7 @@ The **Test connection** action sends a minimal completion to verify the current 
 
 | Area | Capability |
 | --- | --- |
-| Watchlist | Add ETFs or stocks, see prices, daily movers, and grouped ETF/stock sections |
+| Watchlist | Add ETFs or stocks, see prices and movers, right-click to delete, and drag or use Alt+Arrow to persist a custom order |
 | ETF holdings | Expand ETF holdings so news and earnings cover underlying companies |
 | News | Pull public finance headlines and group them by selected market universe |
 | Swing news | Group headlines around each detected chart swing high or swing low |
@@ -270,10 +311,11 @@ The **Test connection** action sends a minimal completion to verify the current 
 | Charts | Candlesticks, volume, MA20/50/200, log scale, stable range transitions, Fit/Latest navigation, collapsible inspector, pivots, support/resistance, risk overlay |
 | Macro overlays | Jobs, unemployment, CPI, 10Y yield, oil, VIX |
 | Signal Board | End-of-day scan for cup bases, moving-average order, highs, VCP, volume, MACD, rebounds, and relative strength |
-| Signal Desk | Deterministic setup classification, confidence, blockers, risk plan, numbered evidence provenance |
+| Signal Desk | Deterministic setup classification, quality score, blockers, risk plan, numbered evidence provenance |
+| Forecast | On-demand local Kronos-mini sampling, 24 trading-hour horizon, ETA/cancellation, chart ranges, immutable history, and observed-close comparison |
 | Decision Journal | Local thesis, catalyst, invalidation, lifecycle state, and immutable signal snapshot |
 | Quant AI | Local/cloud provider selection, verified analyst, isolated verifier, bounded orchestrator, citations, and deterministic fallback |
-| Local persistence | Watchlist, decision journal, saved Quant AI insights, LLM settings, OS-encrypted provider credentials |
+| Local persistence | Ordered watchlist, decision journal, saved forecasts, overlay preferences, Quant AI insights, LLM settings, OS-encrypted provider credentials |
 | Release builds | macOS and Windows ZIPs published on GitHub Releases |
 
 ## Generated Showcase Visual
@@ -312,6 +354,10 @@ Quant/
       services/
         chart.ts              Historical chart data loading
         earnings.ts           Earnings calendar data
+        forecastData.ts       Dedicated hourly history validation and shaping
+        forecastStore.ts      Immutable forecast records and overlay preferences
+        forecastOrchestrator.ts Kronos worker orchestration and record creation
+        kronosWorker.ts       Lazy local Python/native-sidecar lifecycle client
         holdings.ts           ETF holdings lookup
         insightStore.ts       Saved Quant AI insight records
         journalStore.ts       Transactional local Decision Journal persistence
@@ -339,6 +385,8 @@ Quant/
         Watchlist.tsx         Watchlist and movers panel
         chart/
           ChartCanvas.tsx     Lightweight Charts rendering
+          ForecastPanel.tsx   Forecast execution, history, comparison, and controls
+          ForecastBandPrimitive.ts P10–P90 chart primitive
           QuantAgentPanel.tsx Verified Quant AI harness and evidence trace UI
           QuantDecisionPanel.tsx Evidence-Backed Signal Desk and Decision Journal
           useMacroOverlays.ts Macro overlay data hook
@@ -346,14 +394,23 @@ Quant/
     shared/
       harness.ts              Immutable numbered evidence-ledger builder
       ipc.ts                  IPC channel names
+      forecast.ts             Forecast contracts, validation, and progress rules
+      forecastWorker.ts       Versioned worker protocol
       marketPulse.ts          Deterministic regime, correlation, and scenario calculations
       types.ts                Shared API and market data contracts
       quant.ts                Deterministic signal engine
       signals.ts              Multi-symbol pattern detector
+  forecast-engine/
+    worker.py                 NDJSON sidecar entry point
+    kronos_adapter.py         Pinned Kronos model/tokenizer adapter
+    path_runner.py            Seeded path generation and bounded validation
+    metrics.py                Percentile aggregation and forecast metrics
   scripts/
     build.mjs                 esbuild bundle script
     package-release.mjs       Runnable macOS/Windows release folder and archive builder
-    test-quant.mjs            Signal-engine tests
+    check-forecast-release.mjs Unified forecast release gate
+    setup-forecast.mjs        Pinned Python environment setup
+    test-quant.mjs            Quant integration and regression tests
   docs/
     assets/
       screenshots/            Real app screenshots used in this README
@@ -370,6 +427,7 @@ Quant uses a standard Electron split:
 | Preload bridge | `src/main/preload.ts` | Exposes a typed, narrow `window.quant` API to the renderer |
 | Shared types | `src/shared` | IPC contracts, market data models, deterministic signal engine |
 | Renderer | `src/renderer` | React UI, chart rendering, app state, onboarding, agent UI |
+| Forecast worker | `forecast-engine` | Local Kronos inference, path validation, aggregation, and protocol-safe progress |
 | Build scripts | `scripts` | Build, tests, smoke screenshots, release packaging |
 
 The renderer does not directly call remote market endpoints. It asks the Electron main process through the preload bridge. That keeps network access, filesystem writes, local LLM calls, and external link opening in the main process.
@@ -381,6 +439,9 @@ The renderer does not directly call remote market endpoints. It asks the Electro
 | `npm run build` | Bundle Electron main, preload, renderer, and static data into `dist/` |
 | `npm run typecheck` | Run TypeScript type checking without emitting files |
 | `npm run test:quant` | Run deterministic signal-engine tests |
+| `npm run check:forecast` | Run forecast TypeScript, integration, resilience, Python, packaging, build, and browser-harness checks |
+| `npm run setup:forecast` | Create the local Python environment and verify the pinned Kronos source |
+| `npm run build:forecast-sidecar` | Build and health-check the native forecast sidecar for the current supported host |
 | `npm start` | Build and launch the desktop app |
 | `npm run smoke` | Build, launch in smoke mode, and write `dist/smoke.png` |
 | `npm run smoke:modal` | Build, launch with the SPY chart modal open |
@@ -388,19 +449,75 @@ The renderer does not directly call remote market endpoints. It asks the Electro
 | `npm run package:win` | Build a runnable Windows app folder and ZIP locally in `release/` |
 | `npm run package:all` | Build both local release folders and ZIP archives |
 
+## Kronos Forecast Setup
+
+Kronos Forecast is experimental and runs only after **Run Forecast** is
+pressed. Opening Quant, selecting a ticker, or opening a chart does not start
+Python, load Kronos, fetch forecast history, or download model files.
+
+For development:
+
+```bash
+npm run setup:forecast
+npm run typecheck
+npm run test:quant
+```
+
+For the complete host release gate, install PyInstaller, run
+`npm run build:forecast-sidecar` on a supported native host, then run
+`npm run check:forecast`. The gate launches the real frozen worker for a health
+exchange and drives the actual built renderer in headless Chrome. Set
+`CHROME_PATH` if Chrome is not installed in its standard location.
+
+The first real forecast downloads the immutable
+`NeoQuasar/Kronos-mini` and `NeoQuasar/Kronos-Tokenizer-2k` snapshots. Their
+safetensor weights total about 32 MB. Quant verifies the pinned revision, file
+size, and SHA-256 before loading them; model weights are cached outside the app
+and are not included in release ZIPs.
+
+Runtime device behavior:
+
+- CPU is supported and is the fallback, but a 30-path forecast can be slow and
+  has no guaranteed completion-time benchmark.
+- CUDA is selected automatically when PyTorch reports it available.
+- Apple MPS is selected automatically when available.
+- MPS and CUDA remain experimental and unbenchmarked. A device failure during a
+  run does not silently retry on another device.
+- Forecast output is experimental sampled data, not calibrated certainty or
+  investment advice.
+
 ## Release Packaging
 
 Quant includes a lightweight release packager at `scripts/package-release.mjs`. It does not require electron-builder.
 
 The packager:
 
-1. Runs `scripts/build.mjs`.
-2. Uses the installed Electron runtime, or downloads the matching official Electron runtime into `.release-cache/` if the local runtime is missing.
-3. Creates a minimal Electron app payload under `resources/app`.
-4. Copies the compiled `dist/` payload.
-5. Writes a minimal runtime `package.json`.
-6. Copies `LICENSE` and `AUTHORS.md` into the packaged app.
+1. Requires the matching, previously built forecast sidecar.
+2. Runs `scripts/build.mjs`.
+3. Uses the installed Electron runtime, or downloads the matching official Electron runtime into `.release-cache/` if the local runtime is missing.
+4. Creates a minimal Electron app payload under `resources/app`.
+5. Copies the compiled `dist/` payload and native forecast sidecar.
+6. Copies Quant and Kronos licenses plus `THIRD_PARTY_NOTICES.md`.
 7. Produces runnable release folders and distributable ZIP archives under the locally ignored `release/` directory.
+
+Build each sidecar on its native target host. PyInstaller does not
+cross-compile:
+
+```bash
+# Apple Silicon macOS
+.forecast-venv/bin/python -m pip install -r forecast-engine/requirements-packaging.txt
+npm run build:forecast-sidecar -- --platform=darwin --arch=arm64
+npm run package:mac
+
+# 64-bit Windows
+.\.forecast-venv\Scripts\python.exe -m pip install -r forecast-engine\requirements-packaging.txt
+npm run build:forecast-sidecar -- --platform=win32 --arch=x64
+npm run package:win
+```
+
+The generated sidecars live under ignored `sidecars/darwin-arm64` and
+`sidecars/win32-x64` folders. A packaging job may consume a sidecar artifact
+built on the other native host.
 
 Build both release folders:
 
@@ -411,15 +528,20 @@ npm run package:all
 Outputs:
 
 ```text
-release/Quant-v1.5.0-mac-arm64/Quant.app
-release/Quant-v1.5.0-mac-arm64.zip
-release/Quant-v1.5.0-win-x64/Quant.exe
-release/Quant-v1.5.0-win-x64.zip
+release/Quant-v2.0.0-mac-arm64/Quant.app
+release/Quant-v2.0.0-mac-arm64.zip
+release/Quant-v2.0.0-win-x64/Quant.exe
+release/Quant-v2.0.0-win-x64.zip
 ```
 
 The version is embedded in both the release folder and archive name so a new package never silently replaces the previous release.
 
 Upload the ZIP archives as GitHub Release assets. Do not distribute `Quant.exe` alone because it depends on adjacent Electron runtime files.
+
+Local macOS packages receive only ad-hoc signing. Public macOS distribution
+still requires a Developer ID signature and notarization. Windows packages are
+not code-signed by this script and require a separate signing step before
+public distribution.
 
 On machines where global `node`/`npm` is unavailable but a working Electron runtime exists, the scripts can be run through Electron's Node mode:
 

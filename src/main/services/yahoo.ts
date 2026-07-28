@@ -11,10 +11,17 @@ import { BROWSER_UA, fetchJson, HttpError } from './http';
 export interface YahooChartMeta {
   currency?: string | null;
   exchangeName?: string | null;
+  exchangeTimezoneName?: string | null;
   regularMarketPrice?: number | null;
   chartPreviousClose?: number | null;
   previousClose?: number | null;
   marketState?: string | null;
+  currentTradingPeriod?: {
+    regular?: {
+      start?: number | null;
+      end?: number | null;
+    };
+  };
 }
 
 export interface YahooChartResult {
@@ -27,6 +34,9 @@ export interface YahooChartResult {
       low?: Array<number | null>;
       close?: Array<number | null>;
       volume?: Array<number | null>;
+    }>;
+    adjclose?: Array<{
+      adjclose?: Array<number | null>;
     }>;
   };
 }

@@ -590,6 +590,63 @@
   color: var(--accent-strong);
 }
 
+.cm-forecast-legend {
+  position: absolute;
+  z-index: 4;
+  top: 62px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  color: var(--text-2);
+  font: 9px/1 var(--font-mono);
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.cm-forecast-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.cm-forecast-legend i {
+  display: inline-block;
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.cm-forecast-legend i.is-median {
+  height: 2px;
+  background: #54c6eb;
+}
+
+.cm-forecast-legend i.is-band {
+  border: 1px solid rgba(84, 198, 235, 0.52);
+  background: rgba(84, 198, 235, 0.18);
+}
+
+.cm-forecast-legend i.is-start {
+  height: 8px;
+  border-left: 1px dashed var(--warn);
+  border-radius: 0;
+}
+
+.cm-forecast-legend i.is-actual {
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--warn) 0 4px,
+    transparent 4px 7px
+  );
+}
+
 .cm-macro-context {
   position: absolute;
   z-index: 4;

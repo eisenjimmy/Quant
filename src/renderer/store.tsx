@@ -125,6 +125,7 @@ function reducer(state: AppState, action: Action): AppState {
 export interface AppActions {
   addSymbol(symbol: string): Promise<{ ok: boolean; error?: string }>;
   removeSymbol(symbol: string): Promise<void>;
+  reorderSymbols(symbols: string[]): Promise<void>;
   setNewsFilter(value: string): void;
   setCenterTab(value: AppState['centerTab']): void;
   togglePinnedSymbol(symbol: string): void;
@@ -261,6 +262,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       async removeSymbol(symbol: string) {
         const items = await api.removeFromWatchlist(symbol);
+        dispatch({ type: 'watchlist', items });
+      },
+      async reorderSymbols(symbols: string[]) {
+        const items = await api.reorderWatchlist(symbols);
         dispatch({ type: 'watchlist', items });
       },
       setNewsFilter(value: string) {

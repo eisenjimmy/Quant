@@ -22,12 +22,12 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { downloadArtifact } from '@electron/get';
 import extractZip from 'extract-zip';
+import { copyForecastReleaseResources } from './forecast-packaging.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const r = (...parts) => path.join(root, ...parts);
@@ -114,6 +114,12 @@ function makeAppPayload(targetDir) {
   );
   if (existsSync(r('LICENSE'))) copyFileSync(r('LICENSE'), path.join(appDir, 'LICENSE'));
   if (existsSync(r('AUTHORS.md'))) copyFileSync(r('AUTHORS.md'), path.join(appDir, 'AUTHORS.md'));
+  if (existsSync(r('THIRD_PARTY_NOTICES.md'))) {
+    copyFileSync(
+      r('THIRD_PARTY_NOTICES.md'),
+      path.join(appDir, 'THIRD_PARTY_NOTICES.md'),
+    );
+  }
   return appDir;
 }
 
@@ -124,6 +130,10 @@ function copyRuntimeNotice(targetDir) {
     'Run this folder in place. Do not move the executable without the adjacent resources folder.',
     '',
     'Quant AI is optional. Configure local llama.cpp or a cloud provider in Settings; otherwise Quant uses its deterministic fallback memo.',
+    '',
+    'Kronos Forecast is experimental and manual-only. Model files download on first use and are verified before loading.',
+    '',
+    'Third-party notices are included in the app resources.',
     '',
     'Original code by David Wong, username DavidWProject.',
     '',
@@ -145,10 +155,29 @@ function removeFinderMetadata(targetDir) {
 function createZipArchive(sourceDir, outPath) {
   removeFinderMetadata(sourceDir);
   rmSync(outPath, { force: true });
-  execFileSync('zip', ['-q', '-r', '-y', '-X', outPath, path.basename(sourceDir)], {
-    cwd: path.dirname(sourceDir),
-    stdio: 'inherit',
-  });
+  if (process.platform === 'win32') {
+    execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '& { param([string]$source, [string]$out) Compress-Archive -LiteralPath $source -DestinationPath $out -Force }',
+        sourceDir,
+        outPath,
+      ],
+      { stdio: 'inherit' },
+    );
+  } else {
+    execFileSync(
+      'zip',
+      ['-q', '-r', '-y', '-X', outPath, path.basename(sourceDir)],
+      {
+        cwd: path.dirname(sourceDir),
+        stdio: 'inherit',
+      },
+    );
+  }
   log(`archive written to ${path.relative(root, outPath)}`);
 }
 
@@ -194,7 +223,7 @@ async function resolveMacRuntime(targetArch) {
 }
 
 async function packageMac(arch) {
-  const targetArch = arch ?? os.arch();
+  const targetArch = arch ?? 'arm64';
   if (process.platform !== 'darwin' || targetArch !== process.arch) {
     throw new Error(
       `macOS packaging uses the installed Electron runtime and must run on matching darwin/${targetArch}. Current host is ${process.platform}/${process.arch}.`,
@@ -216,6 +245,12 @@ async function packageMac(arch) {
   const resourcesDir = path.join(appPath, 'Contents', 'Resources');
   rmSync(path.join(resourcesDir, 'default_app.asar'), { force: true });
   makeAppPayload(resourcesDir);
+  copyForecastReleaseResources({
+    projectRoot: root,
+    resourcesDir,
+    platform: 'darwin',
+    arch: targetArch,
+  });
   // External/APFS-compatible volumes can materialize AppleDouble `._*` files
   // during the runtime copy. They are not app content and break codesign.
   removeFinderMetadata(appPath);
@@ -250,6 +285,12 @@ async function packageWindows(arch) {
 
   const resourcesDir = path.join(targetDir, 'resources');
   makeAppPayload(resourcesDir);
+  copyForecastReleaseResources({
+    projectRoot: root,
+    resourcesDir,
+    platform: 'win32',
+    arch: targetArch,
+  });
   copyRuntimeNotice(targetDir);
   log(`Windows app written to ${path.relative(root, newExe)}`);
   createZipArchive(targetDir, r('release', `${releaseName}-win-${targetArch}.zip`));
