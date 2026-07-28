@@ -38,6 +38,11 @@ const checks = [
     args: ['scripts/test-forecast-fast-ui.mjs'],
   },
   {
+    name: 'One-command startup',
+    command: process.execPath,
+    args: ['scripts/test-start-quant.mjs'],
+  },
+  {
     name: 'Python forecast engine',
     command: python,
     args: [

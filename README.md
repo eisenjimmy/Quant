@@ -137,33 +137,40 @@ Requirements:
 
 - Node.js 20 or newer
 - npm
-- Python 3.10–3.12 for development forecast setup
+- Git
+- Python 3.10–3.12 to enable local forecasts from source
 - macOS or Windows
 - Internet access for live public market data
 
 macOS or Linux shell:
 
 ```bash
-git clone https://github.com/eisenjimmy/Quant.git
+git clone --recurse-submodules https://github.com/eisenjimmy/Quant.git
 cd Quant
-npm install
-npm run typecheck
-npm start
+npm start quant
 ```
 
 Windows PowerShell:
 
 ```powershell
-git clone https://github.com/eisenjimmy/Quant.git
+git clone --recurse-submodules https://github.com/eisenjimmy/Quant.git
 cd Quant
-npm install
-npm run typecheck
-npm start
+npm start quant
 ```
 
-`npm start` builds the Electron app and launches the desktop window.
-The core terminal works without Python. Run `npm run setup:forecast` only when
-you want to use or develop the local Kronos forecast.
+`npm start quant` and `npm start` run the same self-healing startup:
+
+- Install locked Node dependencies when they are missing or the lockfile changes.
+- Initialize the pinned Kronos submodule when needed.
+- Prepare and verify the local forecast environment when Python 3.10–3.12 is available.
+- Build Quant and launch the Electron app.
+- Skip repeated installs after the environment is current.
+
+The core terminal still launches if forecast setup is unavailable and prints
+one actionable warning. Use `npm start -- --skip-forecast` to intentionally
+skip Python setup, or `npm start -- --refresh` to recheck all dependencies.
+Startup updates dependencies from the committed lockfiles; it never runs
+`git pull` or changes the checked-out source branch.
 
 ## Screenshots
 
@@ -439,10 +446,13 @@ The renderer does not directly call remote market endpoints. It asks the Electro
 | `npm run build` | Bundle Electron main, preload, renderer, and static data into `dist/` |
 | `npm run typecheck` | Run TypeScript type checking without emitting files |
 | `npm run test:quant` | Run deterministic signal-engine tests |
+| `npm run test:start` | Test one-command startup planning without installing or launching |
 | `npm run check:forecast` | Run forecast TypeScript, integration, resilience, Python, packaging, build, and browser-harness checks |
 | `npm run setup:forecast` | Create the local Python environment and verify the pinned Kronos source |
 | `npm run build:forecast-sidecar` | Build and health-check the native forecast sidecar for the current supported host |
-| `npm start` | Build and launch the desktop app |
+| `npm start` or `npm start quant` | Install missing/changed dependencies, prepare forecasts, build, and launch Quant |
+| `npm start -- --skip-forecast` | Launch the core terminal without preparing Python forecast support |
+| `npm start -- --refresh` | Reinstall/recheck dependencies before launching |
 | `npm run smoke` | Build, launch in smoke mode, and write `dist/smoke.png` |
 | `npm run smoke:modal` | Build, launch with the SPY chart modal open |
 | `npm run package:mac` | Build a runnable macOS app folder and ZIP locally in `release/` |
