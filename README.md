@@ -43,6 +43,7 @@ New:
 - **Forecast any ticker:** Run a local 24-trading-hour probabilistic forecast.
 - **Clear progress:** See a measured ETA while forecasting, or cancel the run.
 - **Chart overlay:** Toggle the median path and P10–P90 sampled range.
+- **Projected MA20:** Optionally continue the chart’s MA20 through forecast-median closes.
 - **Saved forecasts:** Reopen each run for seven days and compare it with observed closes.
 - **Right-click and delete:** Remove a stock or ETF directly from the watchlist.
 - **Drag and reorder:** Click, hold, and move watchlist entries; their order is saved.
@@ -60,6 +61,7 @@ Click the preview to watch the 12-second demo:
 - **Input:** Up to 360 completed hourly price and volume bars.
 - **Model:** The local Kronos-mini time-series model generates 30 independent paths.
 - **Result:** Quant shows the median path, sampled P10–P90 range, upside frequency, and volatility diagnostics.
+- **MA20 option:** A dashed continuation derives from chart closes plus forecast medians; it does not change Kronos inputs.
 - **Horizon:** 24 future trading-hour bars, usually about four U.S. market sessions.
 - **History:** Every successful run is saved as an immutable snapshot for seven days.
 - **Limits:** It is not a chat LLM and does not use news, earnings, macro releases, or unexpected events.
@@ -217,6 +219,7 @@ Kronos-mini locally, validates the 30 sampled paths, and displays the median
 plus sampled P10–P90 range on the chart.
 
 - The 24-bar horizon follows trading hours, skipping overnight periods, weekends, holidays, and early-close gaps.
+- On 1M–1Y chart ranges, **Project MA20 through forecast** continues the visible MA20 as a dashed derived overlay.
 - Each rerun creates a separate seven-day snapshot; earlier forecasts are never overwritten.
 - **Historical comparison** aligns available observed closes with the original forecast timestamps.
 - Forecasts are experimental sampled data, not calibrated certainty or investment advice.

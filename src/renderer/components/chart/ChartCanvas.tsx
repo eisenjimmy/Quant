@@ -51,6 +51,7 @@ import {
 import {
   buildForecastOverlayModel,
   buildObservedCloseLine,
+  buildProjectedMa20,
 } from './forecastOverlayModel';
 import {
   formatCandleTime,
@@ -113,6 +114,7 @@ interface ChartCanvasProps {
   forecastRecord: ForecastRecord | null;
   forecastActual: ForecastActualPoint[];
   showForecastOverlay: boolean;
+  showForecastMa20: boolean;
   onNeedMoreHistory?: () => void;
 }
 
@@ -132,6 +134,7 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       forecastRecord,
       forecastActual,
       showForecastOverlay,
+      showForecastMa20,
       onNeedMoreHistory,
     },
     ref,
@@ -185,6 +188,27 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
           ? buildObservedCloseLine(forecastActual)
           : null,
       [forecastActual, showForecastOverlay],
+    );
+    const projectedMa20 = useMemo(
+      () =>
+        showForecastOverlay &&
+        showForecastMa20 &&
+        forecastRecord &&
+        studies.ma20
+          ? buildProjectedMa20(
+              data.candles,
+              forecastRecord,
+              data.interval,
+            )
+          : null,
+      [
+        data.candles,
+        data.interval,
+        forecastRecord,
+        showForecastMa20,
+        showForecastOverlay,
+        studies.ma20,
+      ],
     );
 
     // ---- Chart lifecycle: create once, tear down fully on unmount ----
@@ -472,7 +496,7 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       const replacingForecast = previousForecastIdRef.current !== null;
 
       const medianSeries = chart.addLineSeries({
-        color: '#54c6eb',
+        color: C.accent,
         lineWidth: 2,
         lineStyle: LineStyle.Solid,
         priceLineVisible: false,
@@ -484,6 +508,20 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
       medianSeries.setData(forecastOverlay.median);
       const bandPrimitive = new ForecastBandPrimitive(forecastOverlay);
       medianSeries.attachPrimitive(bandPrimitive);
+      const projectedMa20Series =
+        projectedMa20 && projectedMa20.length > 1
+          ? chart.addLineSeries({
+              color: C.ma20,
+              lineWidth: 2,
+              lineStyle: LineStyle.Dashed,
+              priceLineVisible: false,
+              lastValueVisible: true,
+              crosshairMarkerVisible: true,
+              crosshairMarkerRadius: 3,
+              title: 'Projected MA20',
+            })
+          : null;
+      projectedMa20Series?.setData(projectedMa20 ?? []);
       const actualSeries =
         observedCloseLine && observedCloseLine.length > 0
           ? chart.addLineSeries({
@@ -513,13 +551,21 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
         if (actualSeries && chartRef.current === chart) {
           chart.removeSeries(actualSeries);
         }
+        if (projectedMa20Series && chartRef.current === chart) {
+          chart.removeSeries(projectedMa20Series);
+        }
       };
       forecastOverlayCleanupRef.current = dispose;
       previousForecastIdRef.current = forecastRecord?.id ?? 'forecast';
       if (!replacingForecast) chart.timeScale().fitContent();
 
       return dispose;
-    }, [forecastOverlay, forecastRecord?.id, observedCloseLine]);
+    }, [
+      forecastOverlay,
+      forecastRecord?.id,
+      observedCloseLine,
+      projectedMa20,
+    ]);
 
     // ---- Support / resistance rays ----
     useEffect(() => {
@@ -652,12 +698,17 @@ export const ChartCanvas = forwardRef<ChartCanvasHandle, ChartCanvasProps>(
           <div
             className="cm-forecast-legend"
             aria-label={`Forecast overlay: median line, p10 to p90 sampled range, forecast start${
+              projectedMa20?.length ? ', projected MA20' : ''
+            }${
               observedCloseLine?.length ? ', and observed closes' : ''
             }`}
           >
             <span><i className="is-median" />Forecast median</span>
             <span><i className="is-band" />P10–P90 sampled range</span>
             <span><i className="is-start" />Forecast starts</span>
+            {projectedMa20 && projectedMa20.length > 1 && (
+              <span><i className="is-ma20" />Projected MA20</span>
+            )}
             {observedCloseLine && observedCloseLine.length > 0 && (
               <span><i className="is-actual" />Observed close</span>
             )}

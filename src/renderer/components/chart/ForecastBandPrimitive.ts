@@ -42,7 +42,7 @@ class ForecastBandRenderer implements ISeriesPrimitivePaneRenderer {
           context.lineTo(points[index].x, points[index].lower);
         }
         context.closePath();
-        context.fillStyle = 'rgba(84, 198, 235, 0.14)';
+        context.fillStyle = 'rgba(77, 126, 247, 0.14)';
         context.fill();
         context.restore();
       }

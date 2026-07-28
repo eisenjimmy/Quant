@@ -21,12 +21,20 @@ export function ForecastPanel({
   assetType,
   chartSource,
   chartReady,
+  chartInterval,
+  forecastMa20Enabled,
+  forecastMa20Available,
+  onForecastMa20Change,
   controller,
 }: {
   symbol: string;
   assetType?: InstrumentType;
   chartSource?: DataSource;
   chartReady: boolean;
+  chartInterval?: string;
+  forecastMa20Enabled: boolean;
+  forecastMa20Available: boolean;
+  onForecastMa20Change(enabled: boolean): void;
   controller: ForecastController;
 }) {
   const unavailableReason = useMemo(() => {
@@ -57,6 +65,11 @@ export function ForecastPanel({
     starting: controller.starting,
     job: controller.job,
   });
+  const forecastMa20Locked =
+    overlayLocked ||
+    !controller.selectedRecord ||
+    !controller.overlayEnabled ||
+    !forecastMa20Available;
 
   return (
     <aside
@@ -151,6 +164,38 @@ export function ForecastPanel({
           disabled={!controller.selectedRecord || overlayLocked}
           onChange={(event) =>
             void controller.setOverlayEnabled(event.currentTarget.checked)
+          }
+        />
+        <i aria-hidden="true" />
+      </label>
+
+      <label
+        className={`forecast-overlay-toggle ${
+          forecastMa20Locked ? 'is-disabled' : ''
+        }`}
+      >
+        <span>
+          <strong>Project MA20 through forecast</strong>
+          <small>
+            {!controller.selectedRecord
+              ? 'Run or select a completed forecast first.'
+              : !controller.overlayEnabled
+                ? 'Turn on the forecast chart overlay first.'
+                : !forecastMa20Available
+                  ? `Available on 1M–1Y chart ranges${
+                      chartInterval ? `; current interval is ${chartInterval}` : ''
+                    }.`
+                  : overlayLocked
+                    ? 'Projection controls unlock after the active forecast finishes.'
+                    : 'Extends MA20 with forecast median closes; visualization only, model inputs stay unchanged.'}
+          </small>
+        </span>
+        <input
+          type="checkbox"
+          checked={forecastMa20Enabled}
+          disabled={forecastMa20Locked}
+          onChange={(event) =>
+            onForecastMa20Change(event.currentTarget.checked)
           }
         />
         <i aria-hidden="true" />

@@ -624,12 +624,12 @@
 
 .cm-forecast-legend i.is-median {
   height: 2px;
-  background: #54c6eb;
+  background: var(--accent);
 }
 
 .cm-forecast-legend i.is-band {
-  border: 1px solid rgba(84, 198, 235, 0.52);
-  background: rgba(84, 198, 235, 0.18);
+  border: 1px solid rgba(77, 126, 247, 0.52);
+  background: rgba(77, 126, 247, 0.18);
 }
 
 .cm-forecast-legend i.is-start {
@@ -644,6 +644,15 @@
     90deg,
     var(--warn) 0 4px,
     transparent 4px 7px
+  );
+}
+
+.cm-forecast-legend i.is-ma20 {
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    #54c6eb 0 5px,
+    transparent 5px 8px
   );
 }
 

@@ -47,6 +47,7 @@ All notable changes to Quant are documented here.
 - Added Kronos MIT attribution, `THIRD_PARTY_NOTICES.md`, an exact generated 40-package frozen-runtime license inventory, copied release licenses, and packaging-path tests for both supported platforms.
 - Added a visible forecast ETA that begins with measured path timing, uses a rolling median of recent completed paths, counts down between updates, and disappears as soon as results or another terminal state arrives.
 - Added a cross-platform one-command startup that lets `npm start` or `npm start quant` install changed Node dependencies, initialize Kronos, prepare compatible local forecast support, build, and launch Quant.
+- Added an optional persisted Project MA20 toggle for compatible 60-minute and daily charts, continuing the visible MA20 through forecast-median closes without changing model inputs.
 
 ### Changed
 
@@ -80,6 +81,7 @@ All notable changes to Quant are documented here.
 - Forecast workers now emit an explicit zero-completed-path start event so ETA measurement excludes model download and loading time.
 - Packaged forecast startup now selects the bundled sidecar by verified executable presence instead of Electron's packaging flag, and main-process job failures now retain local diagnostic logging.
 - Source startup now fingerprints committed dependency inputs, skips repeat installs when current, continues into the core terminal when optional Python setup is unavailable, and supports explicit refresh or forecast-skip flags.
+- Forecast median and sampled-range styling now uses the accent blue, while projected MA20 keeps the chart’s cyan study color and switches to a dashed line beyond the forecast boundary.
 
 ### Fixed
 
@@ -107,6 +109,7 @@ All notable changes to Quant are documented here.
 - Expanded the bounded repair ceiling to one scalar correction per forecast candle so valid high/low envelopes complete across normalized ticker scales while malformed, non-finite, non-positive, or more heavily repaired paths still fail closed.
 - Prepared the v2.0.0 release metadata and condensed the README into scannable feature and forecast-summary bullets with a linked visual demo.
 - Replaced the chained npm start command with an idempotent Node bootstrap that validates Node 20+, performs atomic local setup-state updates, strips inherited Electron Node mode, and preserves app arguments.
+- Added interval-aware projected-MA20 aggregation: hourly charts use each forecast median, daily charts use the final exchange-local median per trading day, and unsupported cadences fail closed.
 
 ### Documentation
 
@@ -155,6 +158,7 @@ All notable changes to Quant are documented here.
 - Added the previously uncovered path-21 percentage boundary regression.
 - Added exact 24/25 repair-boundary coverage, category-level repair diagnostics, a live normalized ticker matrix covering DRAM, SPY, IWM, BRK-B, SOFI, TSLA, and NVDA, and a built-renderer Escape-close assertion.
 - Added startup regressions for Node-version validation, the optional `quant` argument, dependency fingerprints, missing and current setup markers, refresh behavior, forecast skipping, changed lockfiles, and side-effect-free dry runs.
+- Added projected-MA20 tests for hourly and daily continuity, unsupported intervals, insufficient history, malformed candles, toggle persistence, and built-renderer accessibility.
 
 ## [1.5.0] - 2026-07-15
 

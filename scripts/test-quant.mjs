@@ -2397,6 +2397,100 @@ assert.equal(savedOverlay?.median[0].value, firstSavedRecord.lastHistoricalClose
 assert.equal(savedOverlay?.median[1].value, firstSavedRecord.aggregate[0].p50);
 assert.equal(savedOverlay?.band[23].lower, firstSavedRecord.aggregate[23].p10);
 assert.equal(savedOverlay?.band[23].upper, firstSavedRecord.aggregate[23].p90);
+assert.equal(
+  forecastOverlayModel.supportsProjectedMa20Interval('60m'),
+  true,
+);
+assert.equal(
+  forecastOverlayModel.supportsProjectedMa20Interval('1d'),
+  true,
+);
+assert.equal(
+  forecastOverlayModel.supportsProjectedMa20Interval('5m'),
+  false,
+);
+const ma20Anchor = Date.parse('2026-07-24T20:00:00.000Z') / 1000;
+const ma20Record = {
+  ...firstSavedRecord,
+  generatedAt: '2026-07-25T12:00:00.000Z',
+  provenance: {
+    ...firstSavedRecord.provenance,
+    latestCompletedCandleAt: '2026-07-24T20:00:00.000Z',
+  },
+};
+const hourlyMa20Candles = Array.from({ length: 25 }, (_, index) => {
+  const close = 100 + index;
+  return {
+    time: ma20Anchor - (24 - index) * 3600,
+    open: close,
+    high: close + 1,
+    low: close - 1,
+    close,
+    volume: 1_000_000,
+  };
+});
+const projectedHourlyMa20 =
+  forecastOverlayModel.buildProjectedMa20(
+    hourlyMa20Candles,
+    ma20Record,
+    '60m',
+  );
+assert.equal(projectedHourlyMa20?.length, 25);
+assert.equal(projectedHourlyMa20?.[0].time, ma20Anchor);
+assert.equal(projectedHourlyMa20?.[0].value, 114.5);
+assert.ok(
+  projectedHourlyMa20[1].time > projectedHourlyMa20[0].time,
+);
+const dailyMa20Candles = Array.from({ length: 25 }, (_, index) => {
+  const close = 200 + index;
+  return {
+    time: ma20Anchor - (24 - index) * 86_400,
+    open: close,
+    high: close + 1,
+    low: close - 1,
+    close,
+    volume: 1_000_000,
+  };
+});
+const projectedDailyMa20 =
+  forecastOverlayModel.buildProjectedMa20(
+    dailyMa20Candles,
+    ma20Record,
+    '1d',
+  );
+assert.ok(projectedDailyMa20.length >= 2);
+assert.ok(projectedDailyMa20.length <= 6);
+assert.equal(
+  projectedDailyMa20[0].time,
+  dailyMa20Candles[dailyMa20Candles.length - 1].time,
+);
+assert.equal(
+  forecastOverlayModel.buildProjectedMa20(
+    hourlyMa20Candles.slice(-19),
+    ma20Record,
+    '60m',
+  ),
+  null,
+);
+assert.equal(
+  forecastOverlayModel.buildProjectedMa20(
+    hourlyMa20Candles,
+    ma20Record,
+    '5m',
+  ),
+  null,
+);
+assert.equal(
+  forecastOverlayModel.buildProjectedMa20(
+    [
+      ...hourlyMa20Candles,
+      hourlyMa20Candles[hourlyMa20Candles.length - 1],
+    ],
+    ma20Record,
+    '60m',
+  ),
+  null,
+);
 const observedCloseLine = forecastOverlayModel.buildObservedCloseLine(
   maturedComparison.actual,
 );

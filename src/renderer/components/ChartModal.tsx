@@ -25,6 +25,7 @@ import { ChartCanvas } from './chart/ChartCanvas';
 import type { ChartCanvasHandle, ChartStudySelection } from './chart/ChartCanvas';
 import { ForecastPanel } from './chart/ForecastPanel';
 import { useForecast } from './chart/useForecast';
+import { supportsProjectedMa20Interval } from './chart/forecastOverlayModel';
 import { PivotNewsPanel } from './chart/PivotNewsPanel';
 import { QuantAgentPanel } from './chart/QuantAgentPanel';
 import { QuantDecisionPanel } from './chart/QuantDecisionPanel';
@@ -56,6 +57,7 @@ interface ChartModalSettings {
   showRiskOverlay: boolean;
   overlays: OverlaySelection;
   studies: ChartStudySelection;
+  showForecastMa20: boolean;
   logScale: boolean;
   railCollapsed: boolean;
   soundEnabled: boolean;
@@ -66,6 +68,7 @@ const DEFAULT_SETTINGS: ChartModalSettings = {
   showRiskOverlay: true,
   overlays: DEFAULT_OVERLAYS,
   studies: { ma20: true, ma50: true, ma200: false },
+  showForecastMa20: false,
   logScale: false,
   railCollapsed: false,
   soundEnabled: true,
@@ -132,6 +135,7 @@ function loadSettings(): ChartModalSettings {
         ma50: parsed.studies?.ma50 !== false,
         ma200: parsed.studies?.ma200 === true,
       },
+      showForecastMa20: parsed.showForecastMa20 === true,
       logScale: parsed.logScale === true,
       railCollapsed: parsed.railCollapsed === true,
       soundEnabled:
@@ -239,6 +243,9 @@ export function ChartModal({ symbol }: { symbol: string }) {
   const [showRiskOverlay, setShowRiskOverlay] = useState(initialSettings.showRiskOverlay);
   const [overlays, setOverlays] = useState<OverlaySelection>(initialSettings.overlays);
   const [studies, setStudies] = useState<ChartStudySelection>(initialSettings.studies);
+  const [showForecastMa20, setShowForecastMa20] = useState(
+    initialSettings.showForecastMa20,
+  );
   const [logScale, setLogScale] = useState(initialSettings.logScale);
   const [railCollapsed, setRailCollapsed] = useState(initialSettings.railCollapsed);
   const [openMenu, setOpenMenu] = useState<'macro' | 'studies' | null>(null);
@@ -301,12 +308,22 @@ export function ChartModal({ symbol }: { symbol: string }) {
       showRiskOverlay,
       overlays,
       studies,
+      showForecastMa20,
       logScale,
       railCollapsed,
       soundEnabled,
       activeRailTab,
     });
-  }, [activeRailTab, logScale, overlays, railCollapsed, showRiskOverlay, soundEnabled, studies]);
+  }, [
+    activeRailTab,
+    logScale,
+    overlays,
+    railCollapsed,
+    showForecastMa20,
+    showRiskOverlay,
+    soundEnabled,
+    studies,
+  ]);
   useEffect(() => play('open'), [play]);
   useEffect(() => {
     const lastBar = data?.candles[data.candles.length - 1]?.time ?? null;
@@ -584,7 +601,15 @@ export function ChartModal({ symbol }: { symbol: string }) {
                       role="menuitemcheckbox"
                       aria-checked={studies[key]}
                       key={key}
-                      onClick={() => setStudies((current) => ({ ...current, [key]: !current[key] }))}
+                      onClick={() => {
+                        setStudies((current) => {
+                          const enabled = !current[key];
+                          if (key === 'ma20' && !enabled) {
+                            setShowForecastMa20(false);
+                          }
+                          return { ...current, [key]: enabled };
+                        });
+                      }}
                     >
                       <span className={`cm-layer-swatch is-${key}`} aria-hidden="true" />
                       <span><strong>{label}</strong><em>{detail}</em></span>
@@ -654,6 +679,7 @@ export function ChartModal({ symbol }: { symbol: string }) {
                   forecast.historicalComparison?.actual ?? []
                 }
                 showForecastOverlay={forecast.overlayEnabled}
+                showForecastMa20={showForecastMa20}
                 onNeedMoreHistory={loadOlder}
               />
             )}
@@ -800,6 +826,22 @@ export function ChartModal({ symbol }: { symbol: string }) {
                   assetType={watchItem?.type}
                   chartSource={settledData?.source}
                   chartReady={Boolean(settledData?.candles.length)}
+                  chartInterval={settledData?.interval}
+                  forecastMa20Enabled={showForecastMa20}
+                  forecastMa20Available={Boolean(
+                    settledData &&
+                      settledData.candles.length >= 20 &&
+                      supportsProjectedMa20Interval(settledData.interval),
+                  )}
+                  onForecastMa20Change={(enabled) => {
+                    setShowForecastMa20(enabled);
+                    if (enabled) {
+                      setStudies((current) => ({
+                        ...current,
+                        ma20: true,
+                      }));
+                    }
+                  }}
                   controller={forecast}
                 />
               </div>

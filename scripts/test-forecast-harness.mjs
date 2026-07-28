@@ -300,6 +300,25 @@ async function runBuiltRendererFlow() {
       await evaluate('document.querySelector(".forecast-eta") === null'),
       true,
     );
+    const ma20ProjectionEnabled = await evaluate(`
+      (() => {
+        const label = [...document.querySelectorAll('.forecast-overlay-toggle')]
+          .find((node) => node.textContent.includes('Project MA20 through forecast'));
+        const input = label?.querySelector('input[type="checkbox"]');
+        if (!input || input.disabled) return false;
+        input.click();
+        return input.checked;
+      })()
+    `);
+    assert.equal(ma20ProjectionEnabled, true);
+    await waitUntil(
+      () =>
+        evaluate(`
+          JSON.parse(localStorage.getItem('quant.chart.settings.v1') || '{}')
+            .showForecastMa20 === true
+        `),
+      'Projected MA20 preference was not persisted',
+    );
     await evaluate(
       'window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); true',
     );
@@ -352,6 +371,7 @@ try {
   );
   assert.match(renderer, /getHistoricalComparison/);
   assert.match(renderer, /Historical comparison/);
+  assert.match(renderer, /Project MA20 through forecast/);
 
   const storage = memoryStorage();
   const api = runStub(
